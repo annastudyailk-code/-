@@ -45,6 +45,18 @@
     "bitrix24-b24jssdk": {
       "repository": "https://github.com/bitrix24/b24jssdk",
       "commit": "32c5256ff0e3b13a1d3c44abd05677d9b7b3fdd2"
+    },
+    "everything-claude-code": {
+      "repository": "https://github.com/affaan-m/ECC",
+      "commit": "51a6950bde756fe3ebc8879aa0c8ee49b9c53e78"
+    },
+    "wshobson-agents": {
+      "repository": "https://github.com/wshobson/agents",
+      "commit": "c4b82b0ad771190355eb8e204b1329732a18449a"
+    },
+    "anthropics-knowledge-work-plugins": {
+      "repository": "https://github.com/anthropics/knowledge-work-plugins",
+      "commit": "0d3cc1898b2881069664d61333b5aacfcb54ae41"
     }
   },
   "skills": {
@@ -695,6 +707,26 @@
     "yandex-direct-api": {
       "source": "yandex-direct-skill",
       "source_path": "SKILL.md"
+    },
+    "competitive-platform-analysis": {
+      "source": "everything-claude-code",
+      "source_path": "skills/competitive-platform-analysis/SKILL.md"
+    },
+    "benchmark-methodology": {
+      "source": "everything-claude-code",
+      "source_path": "skills/benchmark-methodology/SKILL.md"
+    },
+    "competitive-report-structure": {
+      "source": "everything-claude-code",
+      "source_path": "skills/competitive-report-structure/SKILL.md"
+    },
+    "competitive-landscape": {
+      "source": "wshobson-agents",
+      "source_path": "plugins/startup-business-analyst/skills/competitive-landscape/SKILL.md"
+    },
+    "competitive-brief": {
+      "source": "anthropics-knowledge-work-plugins",
+      "source_path": "marketing/skills/competitive-brief/SKILL.md"
     }
   }
 }

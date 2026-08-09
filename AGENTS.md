@@ -18,7 +18,8 @@
 - Bitrix24: `bitrix24-agent`, `b24jssdk-filtering`, `b24jssdk-recipes`, `revops`.
 - Figma и дизайн: `ui-ux-pro-max`, `figma-preflight`, `reference-interpreter`, `component-audit`, `figma-variable-audit`.
 - Проверка SEO-подрядчика: `seo-audit`, `seo-technical`, `seo-content`, `seo-local`, `seo-maps`, `seo-backlinks`.
-- Анализ конкурентов: `competitor-profiling`, `competitors`, `seo-competitor-pages`, `market-research`.
+- Анализ конкурентов, полный цикл: `competitive-platform-analysis` → `benchmark-methodology` → `competitive-report-structure`.
+- Анализ конкурентов, отдельные задачи: `competitive-brief`, `competitive-landscape`, `competitor-profiling`, `competitors`, `seo-competitor-pages`, `market-research`.
 
 ## Безопасность внешних систем
 

@@ -1,4 +1,4 @@
-# Каталог 162 навыков
+# Каталог 167 навыков
 
 Все имена уникальны. В Codex навык можно вызвать как `$имя-навыка`.
 
@@ -152,6 +152,18 @@
 | `$seo-sxo` | Search Experience Optimization: reads Google SERPs backwards to detect page-type mismatches, derives user stories from search intent signals, and scores pages from multiple pers… | [файл](https://github.com/AgriciDaniel/claude-seo/blob/09d37c7b66ed3ca9c6efbdb765a805a6c76a8f01/skills/seo-sxo/SKILL.md) |
 | `$seo-technical` | Technical SEO audit across 9 categories: crawlability, indexability, security, URL structure, mobile, Core Web Vitals, structured data, JavaScript rendering, and IndexNow protoc… | [файл](https://github.com/AgriciDaniel/claude-seo/blob/09d37c7b66ed3ca9c6efbdb765a805a6c76a8f01/skills/seo-technical/SKILL.md) |
 | `$seo-unlighthouse` | Multi-page Lighthouse audit via the MIT-licensed Unlighthouse CLI. Free-tier alternative to running PageSpeed against every URL on a site, no API quota burn, runs locally. | [файл](https://github.com/AgriciDaniel/claude-seo/blob/09d37c7b66ed3ca9c6efbdb765a805a6c76a8f01/extensions/unlighthouse/skills/seo-unlighthouse/SKILL.md) |
+
+## Углублённый анализ конкурентов (5)
+
+Источники: [affaan-m/ECC](https://github.com/affaan-m/ECC/tree/51a6950bde756fe3ebc8879aa0c8ee49b9c53e78), [wshobson/agents](https://github.com/wshobson/agents/tree/c4b82b0ad771190355eb8e204b1329732a18449a), [anthropics/knowledge-work-plugins](https://github.com/anthropics/knowledge-work-plugins/tree/0d3cc1898b2881069664d61333b5aacfcb54ae41).
+
+| Навык | Что делает | Исходник |
+|---|---|---|
+| `$competitive-platform-analysis` | Определяет, кого считать конкурентом, распределяет компании по уровням Direct / Adjacent / Aspirational и формирует доказательный набор для сравнения. | [файл](https://github.com/affaan-m/ECC/blob/51a6950bde756fe3ebc8879aa0c8ee49b9c53e78/skills/competitive-platform-analysis/SKILL.md) |
+| `$benchmark-methodology` | Оценивает конкурентов по девяти единым измерениям: позиционирование, голос бренда, визуал, упаковка оффера, доказательства, коммерческая зрелость, контент, цены и стратегическое позиционирование. | [файл](https://github.com/affaan-m/ECC/blob/51a6950bde756fe3ebc8879aa0c8ee49b9c53e78/skills/benchmark-methodology/SKILL.md) |
+| `$competitive-report-structure` | Собирает итоговый отчёт: карту рынка, матрицу сравнения, глубокие профили, свободные ниши, угрозы и конкретные стратегические рекомендации. | [файл](https://github.com/affaan-m/ECC/blob/51a6950bde756fe3ebc8879aa0c8ee49b9c53e78/skills/competitive-report-structure/SKILL.md) |
+| `$competitive-landscape` | Анализирует конкурентную среду через Пять сил Портера, Blue Ocean Strategy и карты позиционирования, помогая найти устойчивые преимущества. | [файл](https://github.com/wshobson/agents/blob/c4b82b0ad771190355eb8e204b1329732a18449a/plugins/startup-business-analyst/skills/competitive-landscape/SKILL.md) |
+| `$competitive-brief` | Исследует позиционирование, сообщения, продукты, цены, контент и присутствие конкурентов; создаёт сравнительную матрицу, battlecard, возможности и угрозы. | [файл](https://github.com/anthropics/knowledge-work-plugins/blob/0d3cc1898b2881069664d61333b5aacfcb54ae41/marketing/skills/competitive-brief/SKILL.md) |
 
 ## UI/UX и визуальный дизайн (7)
 
