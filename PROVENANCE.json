@@ -1,0 +1,700 @@
+{
+  "generated_at": "2026-08-09",
+  "technical_adaptation": "Only YAML frontmatter and relative dependency links were normalized; workflow bodies are from the cited upstream repositories.",
+  "sources": {
+    "coreyhaines-marketingskills": {
+      "repository": "https://github.com/coreyhaines31/marketingskills",
+      "commit": "7868cb9251fad80a73d26e488a5ad5f6c4a9f335"
+    },
+    "aaron-marketing-skills": {
+      "repository": "https://github.com/aaron-he-zhu/aaron-marketing-skills",
+      "commit": "66632e8ecd7b00e6499d8a6775fd8dc533daa368"
+    },
+    "claude-seo": {
+      "repository": "https://github.com/AgriciDaniel/claude-seo",
+      "commit": "09d37c7b66ed3ca9c6efbdb765a805a6c76a8f01"
+    },
+    "ui-ux-pro-max": {
+      "repository": "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill",
+      "commit": "abb7f2fd5a083fa1ff55c326a963ff0d95c33f99"
+    },
+    "claude2figma": {
+      "repository": "https://github.com/senlindesign/claude2figma",
+      "commit": "edc95d78357249c513cea562659767de159e182c"
+    },
+    "design-system-ops": {
+      "repository": "https://github.com/murphytrueman/design-system-ops",
+      "commit": "a4b11ef230b47198e131df4579067f88384c828d"
+    },
+    "alirezarezvani-claude-skills": {
+      "repository": "https://github.com/alirezarezvani/claude-skills",
+      "commit": "aa8d778811a557a2c28ccadda4cf3d0bd028a4cc"
+    },
+    "terminalskills": {
+      "repository": "https://github.com/TerminalSkills/skills",
+      "commit": "7a5cc96749b07bcbd33d4f27e98a26a3dba456ca"
+    },
+    "yandex-direct-skill": {
+      "repository": "https://github.com/Silverov/yandex-direct-skill",
+      "commit": "ec76ddc02dd653cf0e1471c8475db151820782f3"
+    },
+    "bitrix24-skill": {
+      "repository": "https://github.com/vrtalex/bitrix24-skill",
+      "commit": "73e781d48d2023f75f6e20afb5220d19bbd53e1a"
+    },
+    "bitrix24-b24jssdk": {
+      "repository": "https://github.com/bitrix24/b24jssdk",
+      "commit": "32c5256ff0e3b13a1d3c44abd05677d9b7b3fdd2"
+    }
+  },
+  "skills": {
+    "ab-testing": {
+      "source": "coreyhaines-marketingskills",
+      "source_path": "skills/ab-testing/SKILL.md"
+    },
+    "accessibility-per-component": {
+      "source": "design-system-ops",
+      "source_path": "skills/accessibility-per-component/SKILL.md"
+    },
+    "ad-account-auditor": {
+      "source": "aaron-marketing-skills",
+      "source_path": "ad/activate/ad-account-auditor/SKILL.md"
+    },
+    "ad-creative": {
+      "source": "coreyhaines-marketingskills",
+      "source_path": "skills/ad-creative/SKILL.md"
+    },
+    "ad-creative-builder": {
+      "source": "aaron-marketing-skills",
+      "source_path": "ad/orchestrate/ad-creative-builder/SKILL.md"
+    },
+    "ad-test-designer": {
+      "source": "aaron-marketing-skills",
+      "source_path": "ad/orchestrate/ad-test-designer/SKILL.md"
+    },
+    "ads": {
+      "source": "coreyhaines-marketingskills",
+      "source_path": "skills/ads/SKILL.md"
+    },
+    "ai-seo": {
+      "source": "coreyhaines-marketingskills",
+      "source_path": "skills/ai-seo/SKILL.md"
+    },
+    "analytics": {
+      "source": "coreyhaines-marketingskills",
+      "source_path": "skills/analytics/SKILL.md"
+    },
+    "aso": {
+      "source": "coreyhaines-marketingskills",
+      "source_path": "skills/aso/SKILL.md"
+    },
+    "attribution": {
+      "source": "coreyhaines-marketingskills",
+      "source_path": "skills/attribution/SKILL.md"
+    },
+    "attribution-reconciler": {
+      "source": "aaron-marketing-skills",
+      "source_path": "ad/scale/attribution-reconciler/SKILL.md"
+    },
+    "audience-mapper": {
+      "source": "aaron-marketing-skills",
+      "source_path": "influencer/scout/audience-mapper/SKILL.md"
+    },
+    "audience-segment-builder": {
+      "source": "aaron-marketing-skills",
+      "source_path": "ad/research/audience-segment-builder/SKILL.md"
+    },
+    "b24jssdk-filtering": {
+      "source": "bitrix24-b24jssdk",
+      "source_path": "skills/b24jssdk-filtering/SKILL.md"
+    },
+    "b24jssdk-recipes": {
+      "source": "bitrix24-b24jssdk",
+      "source_path": "skills/b24jssdk-recipes/SKILL.md"
+    },
+    "banner-design": {
+      "source": "ui-ux-pro-max",
+      "source_path": ".claude/skills/banner-design/SKILL.md"
+    },
+    "bid-strategy-planner": {
+      "source": "aaron-marketing-skills",
+      "source_path": "ad/orchestrate/bid-strategy-planner/SKILL.md"
+    },
+    "bitrix24-agent": {
+      "source": "bitrix24-skill",
+      "source_path": "skills/bitrix24-agent/SKILL.md"
+    },
+    "brand": {
+      "source": "ui-ux-pro-max",
+      "source_path": ".claude/skills/brand/SKILL.md"
+    },
+    "brand-language-codifier": {
+      "source": "aaron-marketing-skills",
+      "source_path": "narrative/architect/brand-language-codifier/SKILL.md"
+    },
+    "budget-pacing-monitor": {
+      "source": "aaron-marketing-skills",
+      "source_path": "ad/scale/budget-pacing-monitor/SKILL.md"
+    },
+    "campaign-analytics": {
+      "source": "alirezarezvani-claude-skills",
+      "source_path": "marketing-skill/skills/campaign-analytics/SKILL.md"
+    },
+    "campaign-architect": {
+      "source": "aaron-marketing-skills",
+      "source_path": "ad/research/campaign-architect/SKILL.md"
+    },
+    "campaign-planner": {
+      "source": "aaron-marketing-skills",
+      "source_path": "influencer/target/campaign-planner/SKILL.md"
+    },
+    "churn-prevention": {
+      "source": "coreyhaines-marketingskills",
+      "source_path": "skills/churn-prevention/SKILL.md"
+    },
+    "co-marketing": {
+      "source": "coreyhaines-marketingskills",
+      "source_path": "skills/co-marketing/SKILL.md"
+    },
+    "cold-email": {
+      "source": "coreyhaines-marketingskills",
+      "source_path": "skills/cold-email/SKILL.md"
+    },
+    "community-marketing": {
+      "source": "coreyhaines-marketingskills",
+      "source_path": "skills/community-marketing/SKILL.md"
+    },
+    "competitor-profiling": {
+      "source": "coreyhaines-marketingskills",
+      "source_path": "skills/competitor-profiling/SKILL.md"
+    },
+    "competitors": {
+      "source": "coreyhaines-marketingskills",
+      "source_path": "skills/competitors/SKILL.md"
+    },
+    "component-audit": {
+      "source": "design-system-ops",
+      "source_path": "skills/component-audit/SKILL.md"
+    },
+    "component-rules": {
+      "source": "claude2figma",
+      "source_path": ".claude/skills/component-rules/SKILL.md"
+    },
+    "content-amplifier": {
+      "source": "aaron-marketing-skills",
+      "source_path": "influencer/activate/content-amplifier/SKILL.md"
+    },
+    "content-humanizer": {
+      "source": "alirezarezvani-claude-skills",
+      "source_path": "marketing-skill/skills/content-humanizer/SKILL.md"
+    },
+    "content-strategy": {
+      "source": "coreyhaines-marketingskills",
+      "source_path": "skills/content-strategy/SKILL.md"
+    },
+    "contract-and-proposal-writer": {
+      "source": "alirezarezvani-claude-skills",
+      "source_path": ".gemini/skills/contract-and-proposal-writer/SKILL.md"
+    },
+    "conversion-signal-qa": {
+      "source": "aaron-marketing-skills",
+      "source_path": "ad/activate/conversion-signal-qa/SKILL.md"
+    },
+    "conversion-value-mapper": {
+      "source": "aaron-marketing-skills",
+      "source_path": "ad/activate/conversion-value-mapper/SKILL.md"
+    },
+    "copy-editing": {
+      "source": "coreyhaines-marketingskills",
+      "source_path": "skills/copy-editing/SKILL.md"
+    },
+    "copywriting": {
+      "source": "coreyhaines-marketingskills",
+      "source_path": "skills/copywriting/SKILL.md"
+    },
+    "creator-content-auditor": {
+      "source": "aaron-marketing-skills",
+      "source_path": "influencer/activate/creator-content-auditor/SKILL.md"
+    },
+    "cro": {
+      "source": "coreyhaines-marketingskills",
+      "source_path": "skills/cro/SKILL.md"
+    },
+    "customer-research": {
+      "source": "coreyhaines-marketingskills",
+      "source_path": "skills/customer-research/SKILL.md"
+    },
+    "deliverability-qa": {
+      "source": "aaron-marketing-skills",
+      "source_path": "email/setup/deliverability-qa/SKILL.md"
+    },
+    "design": {
+      "source": "ui-ux-pro-max",
+      "source_path": ".claude/skills/design/SKILL.md"
+    },
+    "design-system": {
+      "source": "ui-ux-pro-max",
+      "source_path": ".claude/skills/design-system/SKILL.md"
+    },
+    "design-to-code-check": {
+      "source": "design-system-ops",
+      "source_path": "skills/design-to-code-check/SKILL.md"
+    },
+    "directory-submissions": {
+      "source": "coreyhaines-marketingskills",
+      "source_path": "skills/directory-submissions/SKILL.md"
+    },
+    "dynamic-content-personalizer": {
+      "source": "aaron-marketing-skills",
+      "source_path": "email/engage/dynamic-content-personalizer/SKILL.md"
+    },
+    "email-quality-auditor": {
+      "source": "aaron-marketing-skills",
+      "source_path": "email/deliver/email-quality-auditor/SKILL.md"
+    },
+    "email-sequence-designer": {
+      "source": "aaron-marketing-skills",
+      "source_path": "email/nurture/email-sequence-designer/SKILL.md"
+    },
+    "emails": {
+      "source": "coreyhaines-marketingskills",
+      "source_path": "skills/emails/SKILL.md"
+    },
+    "engagement-inbox-manager": {
+      "source": "aaron-marketing-skills",
+      "source_path": "social/host/engagement-inbox-manager/SKILL.md"
+    },
+    "fatigue-frequency-manager": {
+      "source": "aaron-marketing-skills",
+      "source_path": "ad/scale/fatigue-frequency-manager/SKILL.md"
+    },
+    "figma-preflight": {
+      "source": "claude2figma",
+      "source_path": ".claude/skills/figma-preflight/SKILL.md"
+    },
+    "figma-style-binding": {
+      "source": "claude2figma",
+      "source_path": ".claude/skills/figma-style-binding/SKILL.md"
+    },
+    "figma-variable-audit": {
+      "source": "design-system-ops",
+      "source_path": "skills/figma-variable-audit/SKILL.md"
+    },
+    "free-tools": {
+      "source": "coreyhaines-marketingskills",
+      "source_path": "skills/free-tools/SKILL.md"
+    },
+    "image": {
+      "source": "coreyhaines-marketingskills",
+      "source_path": "skills/image/SKILL.md"
+    },
+    "inbox-placement-monitor": {
+      "source": "aaron-marketing-skills",
+      "source_path": "email/deliver/inbox-placement-monitor/SKILL.md"
+    },
+    "influencer-discovery": {
+      "source": "aaron-marketing-skills",
+      "source_path": "influencer/scout/influencer-discovery/SKILL.md"
+    },
+    "influencer-marketing": {
+      "source": "coreyhaines-marketingskills",
+      "source_path": "skills/influencer-marketing/SKILL.md"
+    },
+    "landing-experience-checker": {
+      "source": "aaron-marketing-skills",
+      "source_path": "ad/orchestrate/landing-experience-checker/SKILL.md"
+    },
+    "launch": {
+      "source": "coreyhaines-marketingskills",
+      "source_path": "skills/launch/SKILL.md"
+    },
+    "launch-asset-packager": {
+      "source": "aaron-marketing-skills",
+      "source_path": "launch/assemble/launch-asset-packager/SKILL.md"
+    },
+    "launch-feedback-synthesizer": {
+      "source": "aaron-marketing-skills",
+      "source_path": "launch/prove/launch-feedback-synthesizer/SKILL.md"
+    },
+    "launch-readiness-auditor": {
+      "source": "aaron-marketing-skills",
+      "source_path": "launch/mobilize/launch-readiness-auditor/SKILL.md"
+    },
+    "launch-retro-analyzer": {
+      "source": "aaron-marketing-skills",
+      "source_path": "launch/prove/launch-retro-analyzer/SKILL.md"
+    },
+    "launch-window-planner": {
+      "source": "aaron-marketing-skills",
+      "source_path": "launch/research/launch-window-planner/SKILL.md"
+    },
+    "lead-magnets": {
+      "source": "coreyhaines-marketingskills",
+      "source_path": "skills/lead-magnets/SKILL.md"
+    },
+    "list-hygiene-monitor": {
+      "source": "aaron-marketing-skills",
+      "source_path": "email/setup/list-hygiene-monitor/SKILL.md"
+    },
+    "list-segment-builder": {
+      "source": "aaron-marketing-skills",
+      "source_path": "email/setup/list-segment-builder/SKILL.md"
+    },
+    "local-seo-manager": {
+      "source": "alirezarezvani-claude-skills",
+      "source_path": "marketing-skill/skills/local-seo-manager/SKILL.md"
+    },
+    "market-research": {
+      "source": "alirezarezvani-claude-skills",
+      "source_path": ".gemini/skills/market-research/SKILL.md"
+    },
+    "marketing-council": {
+      "source": "coreyhaines-marketingskills",
+      "source_path": "skills/marketing-council/SKILL.md"
+    },
+    "marketing-ideas": {
+      "source": "coreyhaines-marketingskills",
+      "source_path": "skills/marketing-ideas/SKILL.md"
+    },
+    "marketing-loops": {
+      "source": "coreyhaines-marketingskills",
+      "source_path": "skills/marketing-loops/SKILL.md"
+    },
+    "marketing-ops": {
+      "source": "alirezarezvani-claude-skills",
+      "source_path": "marketing-skill/skills/marketing-ops/SKILL.md"
+    },
+    "marketing-plan": {
+      "source": "coreyhaines-marketingskills",
+      "source_path": "skills/marketing-plan/SKILL.md"
+    },
+    "marketing-psychology": {
+      "source": "coreyhaines-marketingskills",
+      "source_path": "skills/marketing-psychology/SKILL.md"
+    },
+    "message-house-builder": {
+      "source": "aaron-marketing-skills",
+      "source_path": "launch/assemble/message-house-builder/SKILL.md"
+    },
+    "message-system-architect": {
+      "source": "aaron-marketing-skills",
+      "source_path": "narrative/architect/message-system-architect/SKILL.md"
+    },
+    "message-test-designer": {
+      "source": "aaron-marketing-skills",
+      "source_path": "narrative/evaluate/message-test-designer/SKILL.md"
+    },
+    "naming-audit": {
+      "source": "design-system-ops",
+      "source_path": "skills/naming-audit/SKILL.md"
+    },
+    "offers": {
+      "source": "coreyhaines-marketingskills",
+      "source_path": "skills/offers/SKILL.md"
+    },
+    "onboarding": {
+      "source": "coreyhaines-marketingskills",
+      "source_path": "skills/onboarding/SKILL.md"
+    },
+    "page-play-builder": {
+      "source": "aaron-marketing-skills",
+      "source_path": "seo-geo/implement/page-play-builder/SKILL.md"
+    },
+    "paid-measurement-loop": {
+      "source": "aaron-marketing-skills",
+      "source_path": "ad/scale/paid-measurement-loop/SKILL.md"
+    },
+    "paywalls": {
+      "source": "coreyhaines-marketingskills",
+      "source_path": "skills/paywalls/SKILL.md"
+    },
+    "performance-analyzer": {
+      "source": "aaron-marketing-skills",
+      "source_path": "influencer/report/performance-analyzer/SKILL.md"
+    },
+    "pitch-narrative-builder": {
+      "source": "aaron-marketing-skills",
+      "source_path": "narrative/land/pitch-narrative-builder/SKILL.md"
+    },
+    "placement-exclusion-manager": {
+      "source": "aaron-marketing-skills",
+      "source_path": "ad/activate/placement-exclusion-manager/SKILL.md"
+    },
+    "popups": {
+      "source": "coreyhaines-marketingskills",
+      "source_path": "skills/popups/SKILL.md"
+    },
+    "pricing": {
+      "source": "coreyhaines-marketingskills",
+      "source_path": "skills/pricing/SKILL.md"
+    },
+    "product-feed-optimizer": {
+      "source": "aaron-marketing-skills",
+      "source_path": "ad/research/product-feed-optimizer/SKILL.md"
+    },
+    "product-marketing": {
+      "source": "coreyhaines-marketingskills",
+      "source_path": "skills/product-marketing/SKILL.md"
+    },
+    "programmatic-seo": {
+      "source": "coreyhaines-marketingskills",
+      "source_path": "skills/programmatic-seo/SKILL.md"
+    },
+    "proof-point-packager": {
+      "source": "aaron-marketing-skills",
+      "source_path": "narrative/land/proof-point-packager/SKILL.md"
+    },
+    "prospecting": {
+      "source": "coreyhaines-marketingskills",
+      "source_path": "skills/prospecting/SKILL.md"
+    },
+    "public-relations": {
+      "source": "coreyhaines-marketingskills",
+      "source_path": "skills/public-relations/SKILL.md"
+    },
+    "reactivation-specialist": {
+      "source": "aaron-marketing-skills",
+      "source_path": "email/nurture/reactivation-specialist/SKILL.md"
+    },
+    "reference-interpreter": {
+      "source": "claude2figma",
+      "source_path": ".claude/skills/reference-interpreter/SKILL.md"
+    },
+    "referrals": {
+      "source": "coreyhaines-marketingskills",
+      "source_path": "skills/referrals/SKILL.md"
+    },
+    "revops": {
+      "source": "coreyhaines-marketingskills",
+      "source_path": "skills/revops/SKILL.md"
+    },
+    "sales-enablement": {
+      "source": "coreyhaines-marketingskills",
+      "source_path": "skills/sales-enablement/SKILL.md"
+    },
+    "schema": {
+      "source": "coreyhaines-marketingskills",
+      "source_path": "skills/schema/SKILL.md"
+    },
+    "search-term-miner": {
+      "source": "aaron-marketing-skills",
+      "source_path": "ad/research/search-term-miner/SKILL.md"
+    },
+    "send-experiment-designer": {
+      "source": "aaron-marketing-skills",
+      "source_path": "email/deliver/send-experiment-designer/SKILL.md"
+    },
+    "seo": {
+      "source": "claude-seo",
+      "source_path": "skills/seo/SKILL.md"
+    },
+    "seo-ahrefs": {
+      "source": "claude-seo",
+      "source_path": "extensions/ahrefs/skills/seo-ahrefs/SKILL.md"
+    },
+    "seo-audit": {
+      "source": "claude-seo",
+      "source_path": "skills/seo-audit/SKILL.md"
+    },
+    "seo-backlinks": {
+      "source": "claude-seo",
+      "source_path": "skills/seo-backlinks/SKILL.md"
+    },
+    "seo-bing": {
+      "source": "claude-seo",
+      "source_path": "extensions/bing-webmaster/skills/seo-bing/SKILL.md"
+    },
+    "seo-cluster": {
+      "source": "claude-seo",
+      "source_path": "skills/seo-cluster/SKILL.md"
+    },
+    "seo-competitor-pages": {
+      "source": "claude-seo",
+      "source_path": "skills/seo-competitor-pages/SKILL.md"
+    },
+    "seo-content": {
+      "source": "claude-seo",
+      "source_path": "skills/seo-content/SKILL.md"
+    },
+    "seo-content-brief": {
+      "source": "claude-seo",
+      "source_path": "skills/seo-content-brief/SKILL.md"
+    },
+    "seo-dataforseo": {
+      "source": "claude-seo",
+      "source_path": "skills/seo-dataforseo/SKILL.md"
+    },
+    "seo-drift": {
+      "source": "claude-seo",
+      "source_path": "skills/seo-drift/SKILL.md"
+    },
+    "seo-ecommerce": {
+      "source": "claude-seo",
+      "source_path": "skills/seo-ecommerce/SKILL.md"
+    },
+    "seo-firecrawl": {
+      "source": "claude-seo",
+      "source_path": "extensions/firecrawl/skills/seo-firecrawl/SKILL.md"
+    },
+    "seo-flow": {
+      "source": "claude-seo",
+      "source_path": "skills/seo-flow/SKILL.md"
+    },
+    "seo-geo": {
+      "source": "claude-seo",
+      "source_path": "skills/seo-geo/SKILL.md"
+    },
+    "seo-google": {
+      "source": "claude-seo",
+      "source_path": "skills/seo-google/SKILL.md"
+    },
+    "seo-hreflang": {
+      "source": "claude-seo",
+      "source_path": "skills/seo-hreflang/SKILL.md"
+    },
+    "seo-image-gen": {
+      "source": "claude-seo",
+      "source_path": "skills/seo-image-gen/SKILL.md"
+    },
+    "seo-images": {
+      "source": "claude-seo",
+      "source_path": "skills/seo-images/SKILL.md"
+    },
+    "seo-local": {
+      "source": "claude-seo",
+      "source_path": "skills/seo-local/SKILL.md"
+    },
+    "seo-maps": {
+      "source": "claude-seo",
+      "source_path": "skills/seo-maps/SKILL.md"
+    },
+    "seo-page": {
+      "source": "claude-seo",
+      "source_path": "skills/seo-page/SKILL.md"
+    },
+    "seo-plan": {
+      "source": "claude-seo",
+      "source_path": "skills/seo-plan/SKILL.md"
+    },
+    "seo-profound": {
+      "source": "claude-seo",
+      "source_path": "extensions/profound/skills/seo-profound/SKILL.md"
+    },
+    "seo-programmatic": {
+      "source": "claude-seo",
+      "source_path": "skills/seo-programmatic/SKILL.md"
+    },
+    "seo-schema": {
+      "source": "claude-seo",
+      "source_path": "skills/seo-schema/SKILL.md"
+    },
+    "seo-seranking": {
+      "source": "claude-seo",
+      "source_path": "extensions/seranking/skills/seo-seranking/SKILL.md"
+    },
+    "seo-sitemap": {
+      "source": "claude-seo",
+      "source_path": "skills/seo-sitemap/SKILL.md"
+    },
+    "seo-sxo": {
+      "source": "claude-seo",
+      "source_path": "skills/seo-sxo/SKILL.md"
+    },
+    "seo-technical": {
+      "source": "claude-seo",
+      "source_path": "skills/seo-technical/SKILL.md"
+    },
+    "seo-unlighthouse": {
+      "source": "claude-seo",
+      "source_path": "extensions/unlighthouse/skills/seo-unlighthouse/SKILL.md"
+    },
+    "short-video-scripter": {
+      "source": "aaron-marketing-skills",
+      "source_path": "social/craft/short-video-scripter/SKILL.md"
+    },
+    "signup": {
+      "source": "coreyhaines-marketingskills",
+      "source_path": "skills/signup/SKILL.md"
+    },
+    "site-architecture": {
+      "source": "coreyhaines-marketingskills",
+      "source_path": "skills/site-architecture/SKILL.md"
+    },
+    "slides": {
+      "source": "ui-ux-pro-max",
+      "source_path": ".claude/skills/slides/SKILL.md"
+    },
+    "sms": {
+      "source": "coreyhaines-marketingskills",
+      "source_path": "skills/sms/SKILL.md"
+    },
+    "social": {
+      "source": "coreyhaines-marketingskills",
+      "source_path": "skills/social/SKILL.md"
+    },
+    "social-calendar-builder": {
+      "source": "aaron-marketing-skills",
+      "source_path": "social/craft/social-calendar-builder/SKILL.md"
+    },
+    "social-creative-builder": {
+      "source": "aaron-marketing-skills",
+      "source_path": "social/craft/social-creative-builder/SKILL.md"
+    },
+    "social-measurement-loop": {
+      "source": "aaron-marketing-skills",
+      "source_path": "social/observe/social-measurement-loop/SKILL.md"
+    },
+    "story-bank-builder": {
+      "source": "aaron-marketing-skills",
+      "source_path": "narrative/architect/story-bank-builder/SKILL.md"
+    },
+    "strategic-narrative-designer": {
+      "source": "aaron-marketing-skills",
+      "source_path": "narrative/architect/strategic-narrative-designer/SKILL.md"
+    },
+    "subject-line-lab": {
+      "source": "aaron-marketing-skills",
+      "source_path": "email/engage/subject-line-lab/SKILL.md"
+    },
+    "theme-audit": {
+      "source": "design-system-ops",
+      "source_path": "skills/theme-audit/SKILL.md"
+    },
+    "tilda": {
+      "source": "terminalskills",
+      "source_path": "skills/tilda/SKILL.md"
+    },
+    "token-audit": {
+      "source": "design-system-ops",
+      "source_path": "skills/token-audit/SKILL.md"
+    },
+    "token-compliance": {
+      "source": "design-system-ops",
+      "source_path": "skills/token-compliance/SKILL.md"
+    },
+    "ui-styling": {
+      "source": "ui-ux-pro-max",
+      "source_path": ".claude/skills/ui-styling/SKILL.md"
+    },
+    "ui-ux-pro-max": {
+      "source": "ui-ux-pro-max",
+      "source_path": ".claude/skills/ui-ux-pro-max/SKILL.md"
+    },
+    "usage-guidelines": {
+      "source": "design-system-ops",
+      "source_path": "skills/usage-guidelines/SKILL.md"
+    },
+    "video": {
+      "source": "coreyhaines-marketingskills",
+      "source_path": "skills/video/SKILL.md"
+    },
+    "visual-report": {
+      "source": "design-system-ops",
+      "source_path": "skills/visual-report/SKILL.md"
+    },
+    "yandex-direct-api": {
+      "source": "yandex-direct-skill",
+      "source_path": "SKILL.md"
+    }
+  }
+}

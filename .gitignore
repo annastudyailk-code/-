@@ -1,0 +1,21 @@
+.DS_Store
+Thumbs.db
+__pycache__/
+*.pyc
+node_modules/
+
+# Никогда не публиковать секреты и токены
+.env
+.env.*
+!.env.example
+.secrets/
+*secret*.json
+*token*.json
+*.pem
+*.key
+
+# Локальные результаты аудитов
+reports/
+audit-output/
+yd-audit-*/
+

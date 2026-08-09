@@ -1,101 +1,94 @@
-# SEO, Marketing & Design Skills Collection
+# Рабочая коллекция навыков для маркетинга, SEO и дизайна
 
-Коллекция из 165+ профессиональных скиллов для SEO, маркетинга, дизайна и продаж.
+В репозитории установлено **162 уникальных внешних навыка** для Codex в ChatGPT. Самодельных навыков нет. Все навыки взяты из открытых репозиториев, привязаны к конкретным upstream-коммитам и сопровождаются лицензиями.
 
-## Структура репозитория
+## Текущее состояние
 
-### 📈 skills/marketing/ (35 скиллов)
+| Проверка | Результат |
+|---|---:|
+| Установленные навыки | 162 |
+| Уникальные имена | 162 |
+| Дубли имён | 0 |
+| Ошибки формата `SKILL.md` | 0 |
+| Битые локальные ссылки | 0 |
+| Битые символические ссылки | 0 |
+| Проверка официальным валидатором OpenAI | 162 из 162 |
 
-**Воронки продаж и конверсия (ericosiu/ai-marketing-skills):**
-| Скилл | Описание |
-|--------|----------|
-| growth-engine | Движок роста: эксперименты, A/B тесты, метрики |
-| sales-pipeline | Управление воронкой продаж (pipeline) |
-| sales-playbook | Плейбук продаж: скрипты, возражения, закрытие |
-| conversion-ops | Операции по конверсии: оптимизация воронки |
-| content-ops | Контент-операции: планирование, производство, дистрибуция |
-| outbound-engine | Исходящие продажи: cold outreach, sequences |
-| lead-dossier | Досье на лида: обогащение данных, персонализация |
-| revenue-intelligence | Аналитика выручки: прогнозы, когорты |
-| deck-generator | Генератор презентаций для продаж |
-| content-eval | Оценка контента: scoring, quality gates |
+Навыки находятся в `.agents/skills`. Это стандартная папка, которую Codex сканирует внутри репозитория согласно [официальной документации OpenAI](https://developers.openai.com/codex/build-skills).
 
-**CRO и психология продаж (aitytech/agentkits-marketing):**
-| Скилл | Описание |
-|--------|----------|
-| ab-test-setup | Настройка A/B тестов |
-| brand-building | Построение бренда |
-| email-marketing | Email-маркетинг |
-| email-sequence | Email-цепочки (nurturing) |
-| form-cro | Оптимизация форм |
-| launch-strategy | Стратегия запуска продукта |
-| marketing-psychology | Психология маркетинга (триггеры, когнитивные искажения) |
-| onboarding-cro | Оптимизация онбординга |
-| page-cro | CRO страниц (конверсия лендингов) |
-| pricing-strategy | Стратегия ценообразования |
-| referral-program | Реферальные программы |
-| popup-cro | Оптимизация попапов |
-| signup-flow-cro | Оптимизация формы регистрации |
-| competitor-alternatives | Анализ конкурентов и альтернатив |
-| content-strategy | Контент-стратегия |
-| marketing-ideas | Генерация маркетинговых идей |
-| free-tool-strategy | Стратегия бесплатных инструментов (lead magnet) |
-| paid-advertising | Платная реклама (Google Ads, Meta Ads) |
+## Откуда взяты навыки
 
-**Ранее добавленные:**
-| Скилл | Описание |
-|--------|----------|
-| copywriting | Конверсионный копирайтинг |
-| cro | CRO Analysis Framework |
-| offers | Дизайн офферов (Value Equation) |
-| market-funnel | Анализ воронки продаж |
-| market-copy | Маркетинговые тексты |
-| market-landing | Аудит лендингов |
-| market-audit | Комплексный маркетинговый аудит |
+Сигналы популярности зафиксированы на 9 августа 2026 года. Звёзды и форки показывают распространённость, но сами по себе не гарантируют результат.
 
-### 🎨 skills/figma/ (61 скилл)
+| Источник | Взято | Проверяемый сигнал | Лицензия |
+|---|---:|---|---|
+| [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) | 48 | 43,6 тыс. звёзд, 6,9 тыс. форков | MIT |
+| [aaron-he-zhu/aaron-marketing-skills](https://github.com/aaron-he-zhu/aaron-marketing-skills) | 51 | 2,5 тыс. звёзд, 344 форка | Apache-2.0 |
+| [AgriciDaniel/claude-seo](https://github.com/AgriciDaniel/claude-seo) | 31 | около 12 тыс. звёзд, 1,7 тыс. форков | MIT |
+| [nextlevelbuilder/ui-ux-pro-max-skill](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill) | 7 | 114,8 тыс. звёзд, 12,6 тыс. форков | MIT |
+| [senlindesign/claude2figma](https://github.com/senlindesign/claude2figma) | 4 | 181 звезда, 16 форков | MIT |
+| [murphytrueman/design-system-ops](https://github.com/murphytrueman/design-system-ops) | 10 | 120 звёзд, 5 форков, 14 лет опыта автора | MIT |
+| [alirezarezvani/claude-skills](https://github.com/alirezarezvani/claude-skills) | 6 | около 22 тыс. звёзд, 3 тыс. форков | MIT |
+| [TerminalSkills/skills](https://github.com/TerminalSkills/skills) | 1 | 125 звёзд; опубликованный eval Tilda 93/100, multiplier 2,26× | Apache-2.0 |
+| [Silverov/yandex-direct-skill](https://github.com/Silverov/yandex-direct-skill) | 1 | 43 звезды, 10 форков, 55 проверок аудита | MIT |
+| [vrtalex/bitrix24-skill](https://github.com/vrtalex/bitrix24-skill) | 1 | 24 звезды, 4 форка | Unlicense |
+| [bitrix24/b24jssdk](https://github.com/bitrix24/b24jssdk) | 2 | официальный репозиторий Bitrix24 | MIT |
 
-| Скилл | Описание | Источник |
-|--------|----------|----------|
-| claude2figma | Связка Claude + Figma: 4 скилла для работы с дизайн-системой | senlindesign/claude2figma |
-| ui-ux-pro-max | Полный UI/UX фреймворк для профессионального дизайна | nextlevelbuilder/ui-ux-pro-max-skill |
-| design-system-ops | Операции с дизайн-системой (аудит, компоненты, токены) | murphytrueman/design-system-ops |
-| figma-generate-design | Генерация дизайна в Figma через MCP | figma/mcp-server-guide |
-| figma-generate-diagram | Генерация диаграмм в Figma | figma/mcp-server-guide |
+Точные коммиты и исходные пути каждого навыка записаны в [`PROVENANCE.json`](PROVENANCE.json). Тексты лицензий находятся в [`THIRD_PARTY_LICENSES`](THIRD_PARTY_LICENSES).
 
-### 🔍 skills/seo/ (64 скилла)
+## Что покрыто
 
-| Скилл | Описание | Источник |
-|--------|----------|----------|
-| seo-geo-claude | GEO SEO (локальное SEO, геотаргетинг) | aaron-he-zhu/seo-geo-claude-skills |
-| claude-seo | On-Page, Content, Technical SEO | AgriciDaniel/claude-seo |
-| superseo | E-E-A-T, NavBoost, Content Quality, Semantic Gap | inhouseseo/superseo-skills |
+- маркетинговая стратегия, планирование, психология, офферы, цены;
+- копирайтинг, редактура, контент, лид-магниты, email и SMS;
+- анализ ЦА, конкурентов, позиционирование, исследования рынка;
+- CRO, A/B-тесты, аналитика, атрибуция, рекламные кампании;
+- SEO-аудит, техническое SEO, контент, GEO/AEO, карты и локальное SEO;
+- Tilda, архитектура лендингов, формы, интеграции, SEO и конверсия;
+- Figma, UI/UX, дизайн-системы, токены, переменные, адаптивность;
+- Яндекс Директ: аудит, отчёты, ключи, бюджеты и оптимизация;
+- Bitrix24: REST, фильтрация CRM, аналитика, автоматизации и готовые рецепты;
+- коммерческие предложения, маркетинговые операции и исследования.
 
-### 💰 skills/sales/ (5 скиллов)
+### Яндекс Карты и Яндекс Бизнес
 
-| Скилл | Описание | Источник |
-|--------|----------|----------|
-| sales-apollo | Интеграция с Apollo.io (поиск лидов) | sales-skills/sales |
-| sales-hubspot | Интеграция с HubSpot CRM | sales-skills/sales |
-| sales-pipedrive | Интеграция с Pipedrive | sales-skills/sales |
-| sales-lemlist | Интеграция с Lemlist (cold email) | sales-skills/sales |
-| sales-instantly | Интеграция с Instantly (outreach) | sales-skills/sales |
+Отдельного популярного и лицензированного публичного навыка именно для Яндекс Бизнеса с проверяемым рейтингом найдено не было. Чтобы не подменять качество самодельным текстом, в коллекцию включены пять разных рабочих подходов из четырёх источников:
 
-## Источники
+- `$seo-maps` — анализ карт, видимости, отзывов, конкурентов и NAP;
+- `$seo-local` — локальные сигналы сайта и посадочных страниц;
+- `$local-seo-manager` — управление локальным SEO и карточками бизнеса;
+- `$page-play-builder` — локальные страницы, каталоги и географические посадочные;
+- `$directory-submissions` — размещение и контроль данных в каталогах.
 
-| Репозиторий | Звёзды | Описание |
-|-------------|--------|----------|
-| [ericosiu/ai-marketing-skills](https://github.com/ericosiu/ai-marketing-skills) | 2.8k ⭐ | Growth, Sales Pipeline, Content Ops |
-| [aitytech/agentkits-marketing](https://github.com/aitytech/agentkits-marketing) | — | 28 marketing skills, 93 commands |
-| [sales-skills/sales](https://github.com/sales-skills/sales) | — | CRM, Outbound, GTM |
-| [senlindesign/claude2figma](https://github.com/senlindesign/claude2figma) | — | Claude + Figma enforcement |
-| [nextlevelbuilder/ui-ux-pro-max-skill](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill) | — | Full UI/UX design intelligence |
-| [murphytrueman/design-system-ops](https://github.com/murphytrueman/design-system-ops) | — | Design System operations |
-| [figma/mcp-server-guide](https://github.com/figma/mcp-server-guide) | — | Official Figma MCP skills |
-| [inhouseseo/superseo-skills](https://github.com/inhouseseo/superseo-skills) | — | Advanced SEO |
-| [AgriciDaniel/claude-seo](https://github.com/AgriciDaniel/claude-seo) | — | SEO suite |
-| [aaron-he-zhu/seo-geo-claude-skills](https://github.com/aaron-he-zhu/seo-geo-claude-skills) | — | GEO SEO |
+Эти навыки применимы к Яндекс Картам и Яндекс Бизнесу, но не выдают себя за несуществующую официальную интеграцию.
 
 ## Как использовать
 
-Каждый скилл содержит файл `SKILL.md` с инструкциями по применению.
+1. В Codex выберите репозиторий `annastudyailk-code/-`.
+2. Поставьте задачу обычным текстом. Codex может выбрать подходящий навык автоматически.
+3. Для точного выбора укажите навык явно через `$`.
+
+Примеры:
+
+```text
+$tilda Проверь структуру лендинга и найди причины низкой конверсии.
+
+$seo-maps $seo-local Проверь работу SEO-подрядчика по локальному продвижению.
+
+$direct Сделай безопасный аудит Яндекс Директа без изменения кампаний.
+
+$bitrix24-agent Проверь логику воронки и сначала покажи план без записи в CRM.
+
+$ui-ux-pro-max $figma-preflight Проверь макет перед передачей в разработку.
+```
+
+При 150+ навыках Codex может сократить начальный список описаний из-за лимита контекста. Если автоматический выбор не сработал, используйте точное имя из [`CATALOG.md`](CATALOG.md).
+
+## Безопасность
+
+- Любые изменения в Яндекс Директе, Bitrix24, CRM и внешних аккаунтах требуют отдельного подтверждения пользователя.
+- Аудиты по умолчанию выполняются в режиме чтения.
+- Токены и пароли нельзя записывать в GitHub или вставлять в `SKILL.md`.
+- Скрипты из внешних источников не запускаются автоматически.
+
+Исходное состояние сохранено в ветке [`backup/pre-overhaul-2026-08-09`](https://github.com/annastudyailk-code/-/tree/backup/pre-overhaul-2026-08-09).
+
