@@ -17,7 +17,7 @@
  *   Without it every call returns `insufficient_scope` (HTTP 401).
  *
  * Run:
- *   B24_HOOK=https://your.bitrix24.com/rest/{user_id}/{webhook_code} npx tsx 05-disk-files.ts
+ *   B24_HOOK=https://your.bitrix24.com/rest/1/secret npx tsx 05-disk-files.ts
  */
 
 import {
@@ -37,7 +37,6 @@ function bootB24(): TypeB24 {
   const url = process.env.B24_HOOK
   if (!url) throw new Error('B24_HOOK env var is required')
   const $b24 = B24Hook.fromWebhookUrl(url)
-  $b24.offClientSideWarning()
   return $b24
 }
 
@@ -109,9 +108,9 @@ async function main() {
   for (const s of storages) {
     logger.info(`  [${s.ID}] ${s.NAME} (${s.ENTITY_TYPE}) — root: ${s.ROOT_OBJECT_ID}`)
   }
-  if (storages.length === 0) return
-
   const storage = storages[0]
+  if (!storage) return
+
   logger.info(`\nRoot of storage ${storage.ID}:`)
   const children = await listFolderChildren($b24, storage.ROOT_OBJECT_ID)
   for (const it of children.slice(0, 20)) {
@@ -148,8 +147,17 @@ async function main() {
   if (!batch.isSuccess) throw new Error(batch.getErrorMessages().join('; '))
 
   const results = batch.getData()! as Record<string, AjaxResult<Storage[] | DiskItem[]>>
-  const batchedStorages = (results.Storages.getData()!.result as Storage[]) ?? []
-  const batchedChildren = (results.Children.getData()!.result as DiskItem[]) ?? []
+  // A `Record<string, ...>` promises a value for every key; the batch response
+  // only carries the keys the portal answered. Check before calling
+  // `.getData()` on something that may not be there.
+  const storagesResult = results.Storages
+  const childrenResult = results.Children
+  if (!storagesResult || !childrenResult) {
+    throw new Error('Batch answered without both named commands')
+  }
+
+  const batchedStorages = (storagesResult.getData()!.result as Storage[]) ?? []
+  const batchedChildren = (childrenResult.getData()!.result as DiskItem[]) ?? []
   logger.info(`\nBatch: ${batchedStorages.length} storages, ${batchedChildren.length} root items`)
 }
 

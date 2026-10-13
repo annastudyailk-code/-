@@ -6,7 +6,7 @@
  * 3. Sends an IM system notification (im.notify) to the contact's assigned manager.
  *
  * Run:
- *   B24_HOOK=https://your.bitrix24.com/rest/{user_id}/{webhook_code} npx tsx 02-mass-messaging.ts
+ *   B24_HOOK=https://your.bitrix24.com/rest/1/secret npx tsx 02-mass-messaging.ts
  */
 
 import {
@@ -26,7 +26,6 @@ function bootB24(): TypeB24 {
   const url = process.env.B24_HOOK
   if (!url) throw new Error('B24_HOOK env var is required')
   const $b24 = B24Hook.fromWebhookUrl(url)
-  $b24.offClientSideWarning()
   return $b24
 }
 

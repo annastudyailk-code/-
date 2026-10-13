@@ -6,7 +6,7 @@
  * No external libs — memory bounded even on 100k+ deal portals.
  *
  * Run:
- *   B24_HOOK=https://your.bitrix24.com/rest/{user_id}/{webhook_code} npx tsx 01-crm-analytics.ts
+ *   B24_HOOK=https://your.bitrix24.com/rest/1/secret npx tsx 01-crm-analytics.ts
  */
 
 import {
@@ -19,8 +19,8 @@ import {
 } from '@bitrix24/b24jssdk'
 import { baseStage, analyseFunnel, type DealRow, type StageStat } from '../lib/funnel'
 
-// New SDK Logger (not the @deprecated LoggerBrowser). pushHandler attaches a
-// console sink at INFO level. See /docs/working-with-the-rest-api/logger/.
+// pushHandler attaches a console sink at INFO level.
+// See /docs/working-with-the-rest-api/logger/.
 const logger = Logger.create('CrmAnalytics')
 logger.pushHandler(new ConsoleV2Handler(LogLevel.INFO, { useStyles: false }))
 
@@ -28,7 +28,6 @@ function bootB24(): TypeB24 {
   const url = process.env.B24_HOOK
   if (!url) throw new Error('B24_HOOK env var is required')
   const $b24 = B24Hook.fromWebhookUrl(url)
-  $b24.offClientSideWarning()
   return $b24
 }
 

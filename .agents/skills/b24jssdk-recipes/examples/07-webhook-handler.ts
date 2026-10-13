@@ -6,10 +6,12 @@
  *   - dispatches by event name
  *   - fetches full entity details via REST when needed
  *   - always returns 200 (Bitrix24 retries on non-2xx for up to 24h)
+ *   - creates a follow-up task idempotently, so a redelivered event does not
+ *     create it twice
  *
  * Install: pnpm add express
  * Env:
- *   B24_HOOK=https://your.bitrix24.com/rest/{user_id}/{webhook_code}
+ *   B24_HOOK=https://your.bitrix24.com/rest/1/secret
  *   B24_APPLICATION_TOKEN=...   (REQUIRED — from Bitrix24 dev console)
  *   PORT=3001 (default)
  * Run:
@@ -32,28 +34,15 @@ import {
   type TypeB24
 } from '@bitrix24/b24jssdk'
 import express, { type Request, type Response } from 'express'
-import { timingSafeEqual } from 'node:crypto'
+import { safeEqual } from '../lib/crypto'
 
 const logger = Logger.create('Webhook')
 logger.pushHandler(new ConsoleV2Handler(LogLevel.INFO, { useStyles: false }))
-
-/**
- * Constant-time string compare. Use for any secret / token comparison so
- * an attacker can't recover the value by measuring response latency.
- * Returns false when lengths differ (does not leak length either).
- */
-function safeEqual(a: string, b: string): boolean {
-  const ab = Buffer.from(a, 'utf8')
-  const bb = Buffer.from(b, 'utf8')
-  if (ab.length !== bb.length) return false
-  return timingSafeEqual(ab, bb)
-}
 
 function bootB24(): TypeB24 {
   const url = process.env.B24_HOOK
   if (!url) throw new Error('B24_HOOK env var is required')
   const $b24 = B24Hook.fromWebhookUrl(url)
-  $b24.offClientSideWarning()
   return $b24
 }
 
@@ -96,7 +85,32 @@ async function handleDealAdd($b24: TypeB24, payload: BitrixEventPayload) {
   try {
     const deal = await loadDeal($b24, id)
     logger.info(`  deal #${id} created: title="${deal.title}", stage=${deal.stageId}, amount=${deal.opportunity} ${deal.currencyId}`)
-    // …add your downstream actions here (Slack/Telegram, internal queues, etc.)
+
+    // Event delivery is at-least-once: Bitrix24 retries for up to 24h on a
+    // non-2xx, and a slow handler that answers after the portal gave up will
+    // see the same event again. Without a key that means a second task on
+    // every redelivery.
+    //
+    // The key names the OPERATION, so it must be the same string on every
+    // delivery of this event. Derived from the deal id — NOT crypto.randomUUID(),
+    // which would be a fresh key per delivery and defeat the whole thing.
+    const created = await $b24.actions.v3.call.make<{ item: { id: number } }>({
+      method: 'tasks.task.add',
+      params: { fields: { title: `Qualify deal #${id}`, creatorId: deal.assignedById, responsibleId: deal.assignedById } },
+      idempotencyKey: `qualify-task-for-deal-${id}`
+    })
+
+    if (created.isIdempotentReplay()) {
+      // Already handled on an earlier delivery. The body is the stored
+      // response, so the id below is the task made the first time — skip the
+      // side effects (Slack, counters, outbound calls) you would fire on a
+      // real create.
+      logger.info(`  duplicate delivery — task #${created.getData()?.result.item.id} already exists`)
+    } else {
+      logger.info(`  follow-up task #${created.getData()?.result.item.id} created`)
+    }
+
+    // …add your other downstream actions here (Slack/Telegram, queues, etc.)
   } catch (e) {
     if (e instanceof AjaxError) logger.warning(`  failed to load deal #${id}: ${e.code}`)
     else throw e

@@ -13,7 +13,7 @@
  *   - retryOnNetworkError: turn off for non-idempotent calls (e.g. *.add)
  *
  * Run:
- *   B24_HOOK=https://your.bitrix24.com/rest/{user_id}/{webhook_code} npx tsx 10-error-handling.ts
+ *   B24_HOOK=https://your.bitrix24.com/rest/1/secret npx tsx 10-error-handling.ts
  */
 
 import {
@@ -35,7 +35,6 @@ function bootB24(): TypeB24 {
   const url = process.env.B24_HOOK
   if (!url) throw new Error('B24_HOOK env var is required')
   const $b24 = B24Hook.fromWebhookUrl(url)
-  $b24.offClientSideWarning()
   return $b24
 }
 
@@ -132,6 +131,23 @@ async function safeCreateDeal($b24: TypeB24, fields: Record<string, unknown>): P
   // In code with overlapping async work on the same $b24, prefer:
   //   - a dedicated $b24 instance for non-idempotent flows, or
   //   - a per-method idempotency token + manual conflict-detection on conflict.
+  //
+  // On restApi:v3 none of this is needed: pass `idempotencyKey` on the call and
+  // the portal deduplicates the write itself, so a retry replays the stored
+  // response instead of creating a second entity.
+  //
+  //   // The key names the OPERATION: derive it from your own identifiers so a
+  //   // retry in another process produces the same string. A randomUUID() here
+  //   // would be a fresh key per attempt, and would deduplicate nothing.
+  //   const res = await $b24.actions.v3.call.make({
+  //     method: 'tasks.task.add',
+  //     params: { fields: { title: 'Ship it', creatorId: 1, responsibleId: 1 } },
+  //     idempotencyKey: `ship-task-for-order-${orderId}`
+  //   })
+  //   res.isIdempotentReplay() // true when the portal replayed an earlier call
+  //
+  // `crm.item.add` below is a v2 method, where the portal ignores the header —
+  // hence the instance-wide policy change and the reconciliation note.
   await $b24.setRestrictionManagerParams({
     ...ParamsFactory.getDefault(),
     retryOnNetworkError: false,
@@ -154,14 +170,25 @@ async function safeCreateDeal($b24: TypeB24, fields: Record<string, unknown>): P
   } catch (e) {
     if (e instanceof AjaxError && (e.code === 'NETWORK_ERROR' || e.code === 'REQUEST_TIMEOUT')) {
       // CRITICAL: do NOT retry blindly. The server may have created the deal.
-      // Reconcile by querying for the new id (e.g. via a client-side idempotency tag).
+      // On v2 the only recourse is to reconcile by querying for the new id
+      // (e.g. via a client-side idempotency tag). A v3 method would instead
+      // carry `idempotencyKey` and be safe to retry as-is.
       logger.error('Network failure during create — may need reconciliation', { code: e.code })
       return null
     }
     throw e
   } finally {
     // Restore the default policy (instance-global; see GOTCHA above).
-    await $b24.setRestrictionManagerParams(ParamsFactory.getDefault())
+    //
+    // Naming the two code lists is not decoration: the setter replaces what you
+    // name and leaves the rest alone, and `ParamsFactory.getDefault()` carries
+    // no `hardErrorCodes` / `softErrorCodes` key — so spreading it alone would
+    // leave the app-specific codes set at the top of this file in force.
+    await $b24.setRestrictionManagerParams({
+      ...ParamsFactory.getDefault(),
+      hardErrorCodes: [],
+      softErrorCodes: []
+    })
   }
 }
 
@@ -173,6 +200,9 @@ async function intentionallyWrongCall($b24: TypeB24) {
   // it as a SOFT error — the call does NOT throw, it returns a failed
   // AjaxResult. Check `isSuccess` rather than catching.
   const response = await $b24.actions.v3.call.make({
+    // v3 publishes no `crm.item.*`; the point of this section is that the
+    // server rejects it, not the SDK.
+    // @check-ignore: `crm.item.get` is the deliberate anti-example here
     method: 'crm.item.get',
     params: { entityTypeId: EnumCrmEntityTypeId.deal, id: 1 }
   })
@@ -197,7 +227,9 @@ async function checkSoftError($b24: TypeB24) {
   })
 
   if (!res.isSuccess) {
-    logger.info('Soft-error path worked:', res.getErrorMessages())
+    // Not `logger.info('…', res.getErrorMessages())`: the second argument is a
+    // context record, so an array lands as `{ '0': …, '1': … }`.
+    logger.info('Soft-error path worked', { errors: res.getErrorMessages() })
   } else {
     logger.warning('Expected a validation failure but the call succeeded')
   }

@@ -6,7 +6,7 @@
  *
  * Install: pnpm add grammy node-cron
  * Env:
- *   B24_HOOK=https://your.bitrix24.com/rest/{user_id}/{webhook_code}
+ *   B24_HOOK=https://your.bitrix24.com/rest/1/secret
  *   TELEGRAM_BOT_TOKEN=...   (from @BotFather)
  *   TELEGRAM_CHAT_ID=...     (chat to notify)
  * Run:
@@ -21,6 +21,8 @@ import {
   Logger,
   type TypeB24
 } from '@bitrix24/b24jssdk'
+import { pathToFileURL } from 'node:url'
+import { baseStage } from '../lib/funnel'
 import { Bot } from 'grammy'
 import cron from 'node-cron'
 
@@ -31,7 +33,6 @@ function bootB24(): TypeB24 {
   const url = process.env.B24_HOOK
   if (!url) throw new Error('B24_HOOK env var is required')
   const $b24 = B24Hook.fromWebhookUrl(url)
-  $b24.offClientSideWarning()
   return $b24
 }
 
@@ -50,8 +51,6 @@ interface DealRow {
 // deployment seed this from persistent storage (file / Redis) or initialise
 // it with the current max(id) on first run to skip historical deals.
 let lastSeenDealId = 0
-
-const baseStage = (s: string) => (s.includes(':') ? s.split(':')[1] : s)
 
 async function fetchNewDeals($b24: TypeB24): Promise<DealRow[]> {
   const res = await $b24.actions.v2.call.make<{ items: DealRow[] }>({
@@ -92,7 +91,7 @@ async function fetchContactName($b24: TypeB24, contactId?: number): Promise<stri
   return `${c.name ?? ''} ${c.lastName ?? ''}`.trim() || 'Anonymous'
 }
 
-function format(deal: DealRow, contactName: string): string {
+export function format(deal: DealRow, contactName: string): string {
   return [
     '🆕 <b>New deal</b>',
     '',
@@ -104,11 +103,20 @@ function format(deal: DealRow, contactName: string): string {
   ].join('\n')
 }
 
-function escape(s: string): string {
+/**
+ * Escape portal text for Telegram's HTML parse mode.
+ *
+ * `<`, `>` and `&` are the full set Telegram requires — in element TEXT. Quotes
+ * are deliberately left alone because `format()` never builds an attribute out
+ * of portal data. If you add one — an `<a href="…">` around a deal title, say —
+ * this must gain `"` and `'` handling first, or the title becomes an injection
+ * point. `telegram-escape.unit.spec.ts` pins that assumption.
+ */
+export function escape(s: string): string {
   return s.replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]!))
 }
 
-async function tick($b24: TypeB24, bot: Bot, chatId: string) {
+export async function tick($b24: TypeB24, bot: Bot, chatId: string) {
   logger.info(`[${new Date().toISOString()}] checking new deals…`)
   const deals = await fetchNewDeals($b24)
   if (deals.length === 0) {
@@ -157,9 +165,15 @@ async function main() {
   await bot.start()
 }
 
-main().catch((e: unknown) => {
-  // Raw console.error so structured-logger formatting can't hide the trace.
-  console.error('\n[recipe failed]', e instanceof Error ? `${e.name}: ${e.message}` : String(e))
-  if (e instanceof Error && e.stack) console.error(e.stack)
-  process.exit(1)
-})
+// Start the bot only when this file IS the program being run. Importing it —
+// which the unit tests do, to exercise `tick`'s cursor logic — must not open a
+// Telegram connection or start polling the portal. `npx tsx 06-telegram-bot.ts`
+// still runs normally.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((e: unknown) => {
+    // Raw console.error so structured-logger formatting can't hide the trace.
+    console.error('\n[recipe failed]', e instanceof Error ? `${e.name}: ${e.message}` : String(e))
+    if (e instanceof Error && e.stack) console.error(e.stack)
+    process.exit(1)
+  })
+}

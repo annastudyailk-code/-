@@ -10,7 +10,7 @@
  * Pairs with Recipe 7 (07-webhook-handler.ts) which receives the events.
  *
  * Run:
- *   B24_HOOK=https://your.bitrix24.com/rest/{user_id}/{webhook_code} \
+ *   B24_HOOK=https://your.bitrix24.com/rest/1/secret \
  *   HANDLER_URL=https://your-server.example.com/webhook \
  *   npx tsx 11-event-registration.ts list
  *
@@ -34,7 +34,6 @@ function bootB24(): TypeB24 {
   const url = process.env.B24_HOOK
   if (!url) throw new Error('B24_HOOK env var is required')
   const $b24 = B24Hook.fromWebhookUrl(url)
-  $b24.offClientSideWarning()
   return $b24
 }
 

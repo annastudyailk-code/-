@@ -13,6 +13,8 @@
  *   PORT=3001 (default)
  *   B24_CLIENT_ID=local.abc123        # from your Bitrix24 dev console
  *   B24_CLIENT_SECRET=...
+ *   B24_OAUTH_STORE=/var/lib/myapp/tokens.json   # optional; default is
+ *                                                # .oauth-store.json in cwd
  * Run:
  *   npx tsx 12-oauth-install.ts
  *
@@ -37,21 +39,36 @@ import {
 import express, { type Request, type Response } from 'express'
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
-import { timingSafeEqual } from 'node:crypto'
+import { pathToFileURL } from 'node:url'
+import { safeEqual } from '../lib/crypto'
+import { checkPortalUrls } from '../lib/portal-url'
 
 const logger = Logger.create('OAuthInstall')
 logger.pushHandler(new ConsoleV2Handler(LogLevel.INFO, { useStyles: false }))
 
 /**
- * Constant-time string compare. Use for any token comparison so an attacker
- * can't recover the secret by measuring response latency.
+ * Shape check for `auth.member_id`, which arrives on an endpoint that by design
+ * cannot authenticate its caller.
+ *
+ * Charset and length, not a denylist. Two things this buys, and one it does NOT:
+ *
+ * - **Log integrity.** The id is interpolated into log lines. A newline in it
+ *   prints a second line that reads exactly like a real install for a different
+ *   portal, which is precisely what the "overwriting existing credentials"
+ *   warning below exists to make visible. A control character can repaint the
+ *   terminal or forge a CI workflow command.
+ * - **A bound on the key.** A megabyte-long id becomes a megabyte-long key in
+ *   whatever store replaces this file.
+ * - **It does NOT close the prototype hazard**: `__proto__`, `constructor` and
+ *   `toString` are all ordinary word characters and pass this check. That is
+ *   the store's job — see `loadStore`. The two defences are separate because
+ *   they answer different questions.
+ *
+ * Deliberately permissive: the SDK documents `member_id` only as a string
+ * (`@example '3xx2030386cyy1b'`), so a stricter rule — 32 hex characters, say —
+ * would refuse ids that the platform itself shows.
  */
-function safeEqual(a: string, b: string): boolean {
-  const ab = Buffer.from(a, 'utf8')
-  const bb = Buffer.from(b, 'utf8')
-  if (ab.length !== bb.length) return false
-  return timingSafeEqual(ab, bb)
-}
+const MEMBER_ID_PATTERN = /^[\w-]{1,64}$/
 
 const SECRET: B24OAuthSecret = {
   clientId: process.env.B24_CLIENT_ID ?? '',
@@ -63,18 +80,63 @@ const SECRET: B24OAuthSecret = {
 //  Replace with your real datastore (Postgres, Redis, etc.) in production.
 // ────────────────────────────────────────────────────────────────────────
 
-const STORE_FILE = path.join(process.cwd(), '.oauth-store.json')
+// Overridable so a deployment can put the token store somewhere other than the
+// working directory — and so the unit tests can point it at a temp file instead
+// of writing real-looking credentials into the repo.
+const STORE_FILE = process.env.B24_OAUTH_STORE ?? path.join(process.cwd(), '.oauth-store.json')
 
 // B24OAuthParams already carries applicationToken; aliasing for clarity at storage boundary.
 type StoredCredentials = B24OAuthParams
 
+// The keys of this store come from the event payload — `auth.member_id` —
+// which this endpoint cannot authenticate. A plain `{}` inherits from
+// `Object.prototype`, and every one of its twelve properties is reachable as a
+// key: `__proto__` (a setter, so the write is swallowed and the install stores
+// nothing), and `constructor`, `toString`, `valueOf`, `hasOwnProperty` and the
+// rest, which a LOOKUP finds as inherited functions — truthy, so they sail past
+// the `if (!creds)` guard in `clientForMember`.
+//
+// Twelve, not three: a denylist of the famous names is the wrong shape of fix.
+// `Object.create(null)` has no prototype and therefore no such keys, so every
+// member_id behaves the same way. Express 5 makes `req.params` null-prototype
+// for exactly this reason.
+//
+// The habit is what to take from this, not the line: an in-memory collection
+// keyed by strings someone else chose is not a record type. A `Map` does the
+// same job (`Result` in the SDK keys its errors that way) at the cost of an
+// `Object.fromEntries` before `JSON.stringify`. (#454)
 async function loadStore(): Promise<Record<string, StoredCredentials>> {
+  let text: string
   try {
-    const text = await fs.readFile(STORE_FILE, 'utf8')
-    return JSON.parse(text)
-  } catch {
-    return {}
+    text = await fs.readFile(STORE_FILE, 'utf8')
+  } catch (error) {
+    // No file yet is the normal first run. Anything else — a permission
+    // problem, a directory where the file should be — must NOT look like an
+    // empty store: the next save would overwrite the real file and take every
+    // portal's credentials with it.
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return Object.create(null)
+    }
+    throw error
   }
+
+  // An empty file is an empty store, not a corrupt one. Two ordinary ways to
+  // get one: an operator pre-creating the file with the 0o600 this recipe asks
+  // for, and the non-atomic write below being interrupted after it truncates.
+  // Both used to self-heal; refusing them would be a permanent outage needing a
+  // human to delete a file.
+  if (text.trim() === '') {
+    return Object.create(null)
+  }
+
+  const parsed: unknown = JSON.parse(text)
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    // Valid JSON, wrong shape. Refuse rather than build a pseudo-store out of
+    // a string's character indices and write it back over the real one.
+    throw new Error(`OAuth store at ${STORE_FILE} is not a JSON object`)
+  }
+
+  return Object.assign(Object.create(null), parsed)
 }
 
 // File mode 0o600: only the file owner can read/write. Tokens MUST NOT be
@@ -90,13 +152,27 @@ async function saveCredentials(memberId: string, creds: StoredCredentials): Prom
   logger.info(`  persisted credentials for member ${memberId}`)
 }
 
-async function getCredentials(memberId: string): Promise<StoredCredentials | null> {
+/**
+ * Exported so the tests can pin the `?? null` below — the guard in
+ * `clientForMember` depends on it. Prefer `clientForMember` in your own code:
+ * this hands back the raw tokens, and they belong in an SDK client, not in
+ * application code that might log them.
+ *
+ * @internal
+ */
+export async function getCredentials(memberId: string): Promise<StoredCredentials | null> {
   const store = await loadStore()
   return store[memberId] ?? null
 }
 
 async function deleteCredentials(memberId: string): Promise<void> {
   const store = await loadStore()
+  // Object rest is safe here even though the copy is a plain object again:
+  // spreading uses CreateDataProperty, not assignment, so a stored `__proto__`
+  // record belonging to ANOTHER portal is carried across as an own property
+  // rather than swallowed by the prototype setter. Copying key by key into a
+  // `{}` would lose it — and losing it here means deleting one portal wipes
+  // another's credentials.
   const { [memberId]: _removed, ...rest } = store
   await fs.writeFile(STORE_FILE, JSON.stringify(rest, null, 2), { mode: 0o600 })
 }
@@ -143,7 +219,7 @@ interface UninstallEventPayload {
   }
 }
 
-function toOAuthParams(auth: InstallEventPayload['auth']): B24OAuthParams {
+export function toOAuthParams(auth: InstallEventPayload['auth']): B24OAuthParams {
   return {
     applicationToken: auth.application_token,
     userId: Number(auth.user_id),
@@ -160,7 +236,28 @@ function toOAuthParams(auth: InstallEventPayload['auth']): B24OAuthParams {
   }
 }
 
-async function handleInstall(req: Request, res: Response) {
+/**
+ * Handle `ONAPPINSTALL`.
+ *
+ * **This endpoint cannot authenticate its caller, and that is a platform
+ * constraint rather than an omission here:** `application_token` is *issued* by
+ * this very event, so a first-time handler has nothing to compare against. Any
+ * POST that reaches `/install` is therefore accepted, and someone who knows or
+ * guesses a `member_id` can overwrite that portal's record (#389).
+ *
+ * What that is *worth* to them is the part this code controls. The stored
+ * `domain` / `client_endpoint` / `server_endpoint` decide where every later call
+ * for the portal goes, so without a check a forged install redirects the app's
+ * own traffic — with its business data — to the forger's server, whose answers
+ * the app then trusts. `checkPortalUrls` removes that: the worst a forged
+ * install can do is corrupt a record so calls fail, which is noisy and
+ * recoverable.
+ *
+ * It does **not** make the endpoint safe to expose carelessly. Put it behind
+ * whatever network control your deployment allows — an allow-list of Bitrix24's
+ * ranges, or a secret path segment — and read the security guide.
+ */
+export async function handleInstall(req: Request, res: Response) {
   const payload = req.body as InstallEventPayload
   // Always 200 — even on bad payloads — so Bitrix24 doesn't retry for 24h.
   res.status(200).send('ok')
@@ -170,7 +267,46 @@ async function handleInstall(req: Request, res: Response) {
     return
   }
 
+  // `typeof` first, because the two checks below both lie about a non-string.
+  // `express.json()` lets a caller choose the JS TYPE, not just the characters:
+  // `RegExp.test` runs ToString on its argument, so `member_id: 12345` — or an
+  // object with a `toString` — passes the pattern and becomes a store key,
+  // persisted as a number. And `.slice(0, 32)` on an array (which
+  // `express.urlencoded({ extended: true })` produces for `auth[member_id][]=`)
+  // slices the array, not the string, so the length bound below is bypassed.
+  if (typeof payload.auth.member_id !== 'string'
+    || !MEMBER_ID_PATTERN.test(payload.auth.member_id)) {
+    // Echoed through JSON.stringify and truncated: a raw id here would print
+    // the very newline the check just refused, but saying nothing at all leaves
+    // an operator whose installs have silently stopped with no way to tell why.
+    // JSON.stringify escapes the control characters, so the line stays one line.
+    // `String(...)` so a non-string is still named rather than throwing here,
+    // and an ellipsis so a truncated id cannot be mistaken for a short one.
+    const shown = String(payload.auth.member_id)
+    logger.warning(
+      `[install] refusing an implausible member_id: ${JSON.stringify(shown.slice(0, 32))}`
+      + (shown.length > 32 ? ` (truncated from ${shown.length})` : '')
+    )
+    return
+  }
+
+  const badUrls = checkPortalUrls(payload.auth)
+  if (badUrls !== null) {
+    // Log the reason, answer nothing: telling the caller which check it tripped
+    // turns the endpoint into an oracle for finding one that passes.
+    logger.warning(`[install] refusing implausible portal URLs for member=${payload.auth.member_id}: ${badUrls}`)
+    return
+  }
+
   const params = toOAuthParams(payload.auth)
+
+  // Not protection — observability. A legitimate reinstall lands here too, so
+  // this cannot refuse; what it can do is stop a silent takeover being silent.
+  const existing = await getCredentials(params.memberId)
+  if (existing) {
+    logger.warning(`[install] overwriting existing credentials for member=${params.memberId}`)
+  }
+
   await saveCredentials(params.memberId, {
     ...params,
     applicationToken: payload.auth.application_token
@@ -182,7 +318,7 @@ async function handleInstall(req: Request, res: Response) {
   logger.info(`[${payload.event}] member=${params.memberId}`)
 }
 
-async function handleUninstall(req: Request, res: Response) {
+export async function handleUninstall(req: Request, res: Response) {
   const payload = req.body as UninstallEventPayload
   // Always 200 — even on bad payloads — so Bitrix24 doesn't retry for 24h.
   res.status(200).send('ok')
@@ -220,7 +356,7 @@ async function handleUninstall(req: Request, res: Response) {
 //  hit Bitrix24 for a specific portal.
 // ────────────────────────────────────────────────────────────────────────
 
-async function clientForMember(memberId: string): Promise<B24OAuth> {
+export async function clientForMember(memberId: string): Promise<B24OAuth> {
   const creds = await getCredentials(memberId)
   if (!creds) throw new Error(`No credentials stored for member ${memberId}. Install the app first.`)
 
@@ -244,13 +380,20 @@ async function clientForMember(memberId: string): Promise<B24OAuth> {
 
   // CRITICAL: persist refreshed tokens so the next cold start sees the latest pair.
   $b24.setCallbackRefreshAuth(async ({ b24OAuthParams }) => {
-    await saveCredentials(b24OAuthParams.memberId, {
+    // Keyed by the id the record was LOADED under, not by the one inside the
+    // refreshed params. They agree whenever the store key equals the record's
+    // own `memberId` — but a store where they disagree is what a hand-edited or
+    // migrated file looks like, and then keying off the params would write this
+    // portal's refreshed tokens over ANOTHER portal's record.
+    //
+    // Not covered by the unit tests: reaching this line needs a real token
+    // refresh against the portal, and the callback is private to the SDK.
+    await saveCredentials(memberId, {
       ...b24OAuthParams,
       applicationToken: creds.applicationToken // unchanged on refresh
     })
   })
 
-  $b24.offClientSideWarning()
   return $b24
 }
 
@@ -277,22 +420,57 @@ async function main() {
     throw new Error('B24_CLIENT_ID and B24_CLIENT_SECRET env vars are required')
   }
 
+  // Say this at startup, not only when the first install is refused. Portal-URL
+  // validation fails closed, and it fails quietly from Bitrix24's side — the
+  // endpoint still answers 200, so a self-hosted operator who has not set the
+  // allow-lists sees installs simply not arrive. One line here is the
+  // difference between "nothing works" and "I know which env var to set".
+  if (!process.env.B24_ALLOWED_PORTAL_HOSTS && !process.env.B24_ALLOWED_OAUTH_HOSTS) {
+    logger.info(
+      'portal-URL validation is using the Bitrix24 cloud defaults; a self-hosted portal '
+      + 'must set B24_ALLOWED_PORTAL_HOSTS and B24_ALLOWED_OAUTH_HOSTS or its installs will be refused'
+    )
+  }
+
   const port = Number(process.env.PORT ?? 3001)
   const app = express()
   app.use(express.json())
   app.use(express.urlencoded({ extended: true }))
 
   app.post('/install', (req: Request, res: Response) => {
-    handleInstall(req, res).catch((e) => {
-      logger.error('install failed', e)
-      res.status(200).send('ok')
+    handleInstall(req, res).catch((e: unknown) => {
+      // The second argument is a CONTEXT RECORD, not a second value. Passing the
+      // Error itself logs `{}` — an Error's message and stack are not own
+      // enumerable properties — so the failure vanished from the log entirely.
+      //
+      // Logging the message and stack is safe HERE because everything this
+      // catch can see throws plain filesystem or validation errors. Keep it
+      // that way: if `saveCredentials`/`getCredentials` ever throw an error
+      // that echoes the credential object, this line publishes an
+      // access_token to the log.
+      logger.error('install failed', {
+        message: e instanceof Error ? e.message : String(e),
+        stack: e instanceof Error ? e.stack : undefined
+      })
+      // Log only — do NOT answer here. The handler sends its 200 on its first
+      // line, before anything can throw, so a second send hits an already
+      // finished response: Express throws ERR_HTTP_HEADERS_SENT, and because we
+      // are inside a `.catch` callback that becomes an unhandled rejection and
+      // Node exits. An unreadable token file would take the server down on
+      // every install POST.
     })
   })
 
   app.post('/uninstall', (req: Request, res: Response) => {
-    handleUninstall(req, res).catch((e) => {
-      logger.error('uninstall failed', e)
-      res.status(200).send('ok')
+    handleUninstall(req, res).catch((e: unknown) => {
+      // The second argument is a CONTEXT RECORD, not a second value. Passing the
+      // Error itself logs `{}` — an Error's message and stack are not own
+      // enumerable properties — so the failure vanished from the log entirely.
+      logger.error('uninstall failed', {
+        message: e instanceof Error ? e.message : String(e),
+        stack: e instanceof Error ? e.stack : undefined
+      })
+      // Log only — see the note on /install above.
     })
   })
 
@@ -314,6 +492,11 @@ async function main() {
     }
 
     try {
+      // Not shape-checked, on purpose: this path is read-only, the id is never
+      // logged, and it cannot create a store key — the only write below it
+      // happens after a lookup succeeded, which means the key passed the check
+      // at install time. Re-check here if you make this a datastore lookup,
+      // where an unbounded segment becomes an unbounded key.
       const $b24 = await clientForMember(req.params.memberId)
       const profile = await demoCall($b24)
       res.json(profile)
@@ -339,9 +522,14 @@ async function main() {
   })
 }
 
-main().catch((e: unknown) => {
-  // Raw console.error so structured-logger formatting can't hide the trace.
-  console.error('\n[recipe failed]', e instanceof Error ? `${e.name}: ${e.message}` : String(e))
-  if (e instanceof Error && e.stack) console.error(e.stack)
-  process.exit(1)
-})
+// Start the server only when this file IS the program being run. Importing it —
+// which the unit tests do, to exercise the uninstall token check — must not bind
+// a port. `npx tsx 12-oauth-install.ts` still runs normally.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((e: unknown) => {
+    // Raw console.error so structured-logger formatting can't hide the trace.
+    console.error('\n[recipe failed]', e instanceof Error ? `${e.name}: ${e.message}` : String(e))
+    if (e instanceof Error && e.stack) console.error(e.stack)
+    process.exit(1)
+  })
+}

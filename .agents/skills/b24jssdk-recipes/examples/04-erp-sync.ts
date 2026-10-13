@@ -8,7 +8,7 @@
  *
  * Install: pnpm add node-cron
  * Run:
- *   B24_HOOK=https://your.bitrix24.com/rest/{user_id}/{webhook_code} npx tsx 04-erp-sync.ts
+ *   B24_HOOK=https://your.bitrix24.com/rest/1/secret npx tsx 04-erp-sync.ts
  */
 
 import {
@@ -28,7 +28,6 @@ function bootB24(): TypeB24 {
   const url = process.env.B24_HOOK
   if (!url) throw new Error('B24_HOOK env var is required')
   const $b24 = B24Hook.fromWebhookUrl(url)
-  $b24.offClientSideWarning()
   return $b24
 }
 
@@ -45,9 +44,9 @@ interface ErpContact {
 
 function fetchErpContacts(): ErpContact[] {
   return [
-    { id: 'erp-001', name: 'TEST_NAME_1', lastName: 'TEST_LAST_NAME_1', email: 'EMAIL_PLACEHOLDER_1', phone: 'PHONE_PLACEHOLDER_1', inn: 'INN_PLACEHOLDER_1', company: 'COMPANY_PLACEHOLDER_1' },
-    { id: 'erp-002', name: 'TEST_NAME_2', lastName: 'TEST_LAST_NAME_2', email: 'EMAIL_PLACEHOLDER_2', phone: 'PHONE_PLACEHOLDER_2', inn: 'INN_PLACEHOLDER_2', company: 'COMPANY_PLACEHOLDER_2' },
-    { id: 'erp-003', name: 'TEST_NAME_3', lastName: 'TEST_LAST_NAME_3', email: 'EMAIL_PLACEHOLDER_3', phone: 'PHONE_PLACEHOLDER_3', inn: 'INN_PLACEHOLDER_3', company: 'COMPANY_PLACEHOLDER_3' }
+    { id: 'erp-001', name: 'Иван', lastName: 'Петров', email: 'petrov@example.com', phone: '+79001234567', inn: '7701234567', company: 'OOO Romashka' },
+    { id: 'erp-002', name: 'Мария', lastName: 'Сидорова', email: 'sidorova@example.com', phone: '+79009876543', inn: '7709876543', company: 'IP Sidorova' },
+    { id: 'erp-003', name: 'Алексей', lastName: 'Козлов', email: 'kozlov@example.com', phone: '+79005551234', inn: '7705551234', company: 'AO Beryozka' }
   ]
 }
 
