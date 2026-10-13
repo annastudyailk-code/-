@@ -1,4 +1,4 @@
-# Каталог 173 навыков
+# Каталог 177 навыков
 
 Все имена уникальны. В Codex навык можно вызвать как `$имя-навыка`.
 
@@ -243,7 +243,7 @@
 
 | Навык | Что делает | Исходник |
 |---|---|---|
-| `$direct` | Yandex Direct (API v5) advertising audit, management, and optimization. Full account audits, campaign management, keyword operations, reporting, budget analysis, and optimizatio… | [файл](https://github.com/Silverov/yandex-direct-skill/blob/ec76ddc02dd653cf0e1471c8475db151820782f3/SKILL.md) |
+| `$yandex-direct-api` | Yandex Direct (API v5) advertising audit, management, and optimization. Full account audits, campaign management, keyword operations, reporting, budget analysis, and optimizatio… | [файл](https://github.com/Silverov/yandex-direct-skill/blob/ec76ddc02dd653cf0e1471c8475db151820782f3/SKILL.md) |
 
 ## Bitrix24 REST и CRM (1)
 
@@ -263,3 +263,12 @@
 | `$b24jssdk-rest` | Работа с REST API v2/v3 | [файл](https://github.com/bitrix24/b24jssdk/blob/main/skills/b24jssdk-rest/SKILL.md) |
 | `$b24jssdk-filtering` | Build filter, order, and select parameters for Bitrix24 REST methods called via b24jssdk's actions.v{2,3}.* API. Covers the v2 prefix dialect (greater-or-equal, less-or-equal, n… | [файл](https://github.com/bitrix24/b24jssdk/blob/32c5256ff0e3b13a1d3c44abd05677d9b7b3fdd2/skills/b24jssdk-filtering/SKILL.md) |
 | `$b24jssdk-recipes` | End-to-end mini-apps built on the canonical b24jssdk actions.v{2,3}.* surface — CRM analytics, ERP sync, Telegram bot, mass mailing, task automation, AI assistant, web search +… | [файл](https://github.com/bitrix24/b24jssdk/blob/32c5256ff0e3b13a1d3c44abd05677d9b7b3fdd2/skills/b24jssdk-recipes/SKILL.md) |
+
+## Дополнительные скиллы, обнаруженные при проверке (4)
+
+| Навык | Что делает | Исходник |
+|---|---|---|
+| `$gtm-metrics` | Показатели маркетинга и воронки | [локальный файл](.agents/skills/gtm-metrics/SKILL.md) |
+| `$seo-machine-ru` | SEO-материалы для российской выдачи | [локальный файл](.agents/skills/seo-machine-ru/SKILL.md) |
+| `$tracking-plan` | План аналитики, событий и атрибуции | [локальный файл](.agents/skills/tracking-plan/SKILL.md) |
+| `$yandex-metrika-analytics` | Анализ Яндекс.Метрики; требует отдельного MCP-доступа | [локальный файл](.agents/skills/yandex-metrika-analytics/SKILL.md) |

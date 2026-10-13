@@ -65,6 +65,11 @@
     "2gelbuy-local-seo": {
       "repository": "https://github.com/2gelbuy/google-yandex-2gis-local-seo-skill",
       "commit": "eab3e6d1018d21acbb97b461e699405fc7efc31f"
+    },
+    "preexisting-repository": {
+      "repository": "https://github.com/annastudyailk-code/-",
+      "commit": "241be4d4eb6f21800b63b98707eac977e68e5e18",
+      "note": "Four skills existed before 2026-10-13 upgrade; original upstream provenance not verified"
     }
   },
   "skills": {
@@ -759,6 +764,26 @@
     "google-yandex-2gis-local-seo": {
       "source": "2gelbuy-local-seo",
       "source_path": "skills/google-yandex-2gis-local-seo/SKILL.md"
+    },
+    "gtm-metrics": {
+      "source": "preexisting-repository",
+      "source_path": ".agents/skills/gtm-metrics/SKILL.md",
+      "note": "Pre-existing source, upstream not verified in this update"
+    },
+    "seo-machine-ru": {
+      "source": "preexisting-repository",
+      "source_path": ".agents/skills/seo-machine-ru/SKILL.md",
+      "note": "Pre-existing source, upstream not verified in this update"
+    },
+    "tracking-plan": {
+      "source": "preexisting-repository",
+      "source_path": ".agents/skills/tracking-plan/SKILL.md",
+      "note": "Pre-existing source, upstream not verified in this update"
+    },
+    "yandex-metrika-analytics": {
+      "source": "preexisting-repository",
+      "source_path": ".agents/skills/yandex-metrika-analytics/SKILL.md",
+      "note": "Pre-existing source, upstream not verified in this update"
     }
   }
 }
