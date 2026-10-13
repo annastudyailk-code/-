@@ -1,0 +1,384 @@
+---
+name: b24jssdk-core
+description: "Pick and initialize the right b24jssdk entry point (B24Hook for backends, B24Frame for in-iframe apps, B24OAuth for OAuth-installed apps), wire up logging, handle errors, and tune restriction-manager retry behaviour (hardErrorCodes, softErrorCodes, retryOnNetworkError). Load first when generating any b24jssdk code."
+---
+
+# b24jssdk core
+
+Three entry points share the same REST surface, exposed via `$b24.actions.v{2,3}.*`. Pick by **where the code runs**:
+
+| Entry point | Where | Auth source |
+| --- | --- | --- |
+| `B24Hook` | Node.js / scripts / serverless | inbound webhook URL (`/rest/<userId>/<secret>`) |
+| `B24Frame` | Browser, **inside** a Bitrix24 placement iframe | `postMessage` handshake with the parent window |
+| `B24OAuth` | Server side of an OAuth-installed Bitrix24 app | `accessToken` + `refreshToken` from Bitrix24 install events |
+
+> Once initialized, write the rest of your code against the abstract type `TypeB24` so the same logic runs on any of the three.
+
+## B24Hook (backend / scripts)
+
+```ts
+import { B24Hook, ConsoleV2Handler, LogLevel, Logger } from '@bitrix24/b24jssdk'
+
+// Node, so the handler is created explicitly with `useStyles: false`; the
+// browser factory below emits CSS styling a terminal prints as literal noise.
+const logger = Logger.create('Srv')
+logger.pushHandler(new ConsoleV2Handler(LogLevel.INFO, { useStyles: false }))
+
+const $b24 = B24Hook.fromWebhookUrl(
+  // Format: https://<portal>.bitrix24.<tld>/rest/<userId>/<secret>
+  process.env.B24_HOOK!
+)
+
+const me = await $b24.actions.v2.call.make<{ NAME: string; ID: number }>({
+  method: 'profile',
+  requestId: 'profile-1'
+})
+logger.info(`Hello, ${me.getData()!.result.NAME}`)
+```
+
+Alternative constructor (manual parts):
+
+```ts
+import { B24Hook } from '@bitrix24/b24jssdk'
+const $b24 = new B24Hook({
+  b24Url: 'https://your_domain.bitrix24.com',
+  userId: 1,
+  secret: 'k32t88gf3azpmwv3'
+})
+```
+
+Notes:
+
+- Keep `B24Hook` server-side only. The webhook URL contains a long-lived secret.
+- Supported Node: `>=22` (Node 20 was dropped in 3.0.0 — it is EOL).
+
+## B24Frame (in-iframe app)
+
+```ts
+import { initializeB24Frame, LoggerFactory, type B24Frame } from '@bitrix24/b24jssdk'
+
+const logger = LoggerFactory.createForBrowser('App', import.meta.env?.DEV === true)
+let $b24: B24Frame
+
+async function boot() {
+  $b24 = await initializeB24Frame()
+  // The frame handles auth transparently; refresh on 401 is automatic.
+  // If you pass the token to your OWN backend instead of calling through $b24,
+  // that path never runs — use `initializeB24Frame({ keepAuthFresh: true })`.
+  // See the `b24jssdk-frame-ui` skill.
+}
+
+function teardown() {
+  $b24?.destroy()
+}
+```
+
+`initializeB24Frame()` deduplicates concurrent calls — safe to await it from multiple places.
+
+**If the app is in install mode, finish the installation.** Until `installFinish()`
+is called the portal treats the app as half-installed and delivers **no events** to
+it — bot handlers, `event.bind` handlers and other outgoing calls never arrive, with
+nothing failing loudly to say so:
+
+```ts
+if ($b24.isInstallMode) {
+  // provision whatever the app needs, then finish — the portal reloads the page
+  // in response, so this is the last statement of the flow.
+  await $b24.installFinish()
+}
+```
+
+See the `b24jssdk-frame-ui` skill for the full rule. Note this is a **lifecycle**
+step, not a security one — an OAuth install/uninstall endpoint still verifies
+`application_token` (see the security checklist below).
+
+## B24OAuth (server side of an OAuth app)
+
+```ts
+import { B24OAuth } from '@bitrix24/b24jssdk'
+
+// `b24OAuthParams` come from the install/refresh events of your Bitrix24 app
+// (applicationToken, accessToken, refreshToken, expires, expiresIn, domain, …)
+// `oAuthSecret` is your registered app's clientId/clientSecret pair.
+const $b24 = new B24OAuth(b24OAuthParams, { clientId, clientSecret })
+
+// Persist refreshed credentials so the next process gets the latest tokens
+$b24.setCallbackRefreshAuth(async ({ authData, b24OAuthParams }) => {
+  await db.appCredentials.upsert(b24OAuthParams)
+})
+
+await $b24.initIsAdmin() // populates auth.isAdmin
+```
+
+`B24OAuth` automatically refreshes the access token on 401. **Always register `setCallbackRefreshAuth` on the server** so refreshed tokens are persisted.
+
+## Logging
+
+In the browser, one factory call is enough:
+
+```ts
+import { LoggerFactory } from '@bitrix24/b24jssdk'
+
+const logger = LoggerFactory.createForBrowser('AppName', /* isDev */ true)
+```
+
+Under Node, build it explicitly so the output is not styled for a browser console:
+
+```ts
+import { ConsoleV2Handler, LogLevel, Logger } from '@bitrix24/b24jssdk'
+
+const logger = Logger.create('AppName')
+logger.pushHandler(new ConsoleV2Handler(LogLevel.INFO, { useStyles: false }))
+```
+
+Either way the logging calls are the same. **The second argument is a context
+object, not a second message** — every level takes `(message: string, context?:
+Record<string, any>)`, so interpolate values into the message or pass them as
+named fields:
+
+```ts
+logger.info('starting up')
+logger.warning('something looks off', { retries: 2 })
+
+try {
+  await risky()
+} catch (err) {
+  // Never `logger.error('failure', err)` — an Error's message and stack are not
+  // own enumerable properties, so it serialises to `{}` and the reason is lost.
+  logger.error('failure', {
+    message: err instanceof Error ? err.message : String(err),
+    stack: err instanceof Error ? err.stack : undefined
+  })
+}
+```
+
+Note `warning`, not `warn`. `isDev` toggles verbose output. To get SDK-internal
+traces:
+
+```ts
+$b24.setLogger(logger)
+```
+
+## Error handling
+
+`actions.v{2,3}.call.make` returns an `AjaxResult`. REST-level failures throw `AjaxError`. SDK-level failures (wrong API version for a method, etc.) throw `SdkError`.
+
+```ts
+import { AjaxError, SdkError } from '@bitrix24/b24jssdk'
+
+async function loadDeal() {
+  try {
+    const res = await $b24.actions.v2.call.make<{ item: Deal }>({
+      method: 'crm.item.get',
+      params: { entityTypeId: 2, id: 999_999 }
+    })
+    if (!res.isSuccess) {
+      // Soft errors only (see softErrorCodes below). Most failures throw.
+      logger.warning('non-success result', { errors: res.getErrorMessages() })
+      return
+    }
+    return res.getData()!.result.item
+  } catch (e) {
+    if (e instanceof AjaxError) {
+      logger.error('REST error', { code: e.code, status: e.status, message: e.message, requestInfo: e.requestInfo })
+      // restApi:v3 only: `e.validation` names the field that failed, which
+      // `message` does not. Both `field` and `message` are optional.
+      for (const detail of e.validation ?? []) {
+        logger.error('invalid field', { field: detail.field, message: detail.message })
+      }
+    } else if (e instanceof SdkError) {
+      logger.error('SDK error', { code: e.code, message: e.message })
+    } else {
+      throw e
+    }
+  }
+}
+```
+
+> **`requestInfo` is safe to log because `AjaxError` redacts it, not because
+> the call site is careful.** Its constructor runs the request params through
+> `redactSensitiveParams`, replacing `auth`, `token`, `secret`, `access_token`,
+> `refresh_token`, `client_secret`, `application_token`, `password`, `sessid`,
+> `key` and `signature` with `***REDACTED***`. So do not rebuild that context by hand from
+> the original params — a hand-assembled `{ method, params }` inherits none of
+> that and will put a live credential into the log.
+
+Common AjaxError codes worth handling:
+
+- `ERROR_NOT_FOUND` — id does not exist (404)
+- `INVALID_CREDENTIALS` / `EXPIRED_TOKEN` (401) — the SDK auto-refreshes the token and retries once on every entry point; for `B24Hook` the refresh is a no-op, so a wrong webhook still fails
+- `QUERY_LIMIT_EXCEEDED` — rate limit. The SDK already throttles, but you may need `batchByChunk` instead of a tight loop.
+- `INTERNAL_SERVER_ERROR` (50x) — transient. The SDK retries automatically up to `maxRetries`.
+
+Common SdkError codes:
+
+- `JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3` — thrown only by `AjaxResult.getNext()` / `fetchNext()` against a v3 client — they are `restApi:v2`-only (not deprecated), and v3 has no `next` offset to follow. `actions.v3.*.make` no longer throws it: the SDK dropped its v3 method allowlist, so an unknown v3 method comes back as a `METHODNOTFOUNDEXCEPTION` soft error on the result instead.
+
+## Tuning retry / throw behaviour
+
+The restriction manager decides how a failed call reaches you: **hard** means the promise rejects and you catch an `AjaxError`; **soft** means it resolves and `response.isSuccess === false`. That is delivery, not severity — neither affects retries (any 4xx except 408/429 stops retrying either way), and **anything not classified soft is thrown**, unlisted codes included.
+
+Defaults pin the well-known Bitrix24 codes; extend per-app via `RestrictionParams`.
+
+```ts
+import { B24Hook, ParamsFactory, ApiVersion } from '@bitrix24/b24jssdk'
+
+const $b24 = B24Hook.fromWebhookUrl(process.env.B24_HOOK!)
+
+await $b24.setRestrictionManagerParams({
+  ...ParamsFactory.getDefault(),
+
+  // Codes that must throw immediately (no retry). Use for business-specific
+  // error codes that the SDK doesn't know about — otherwise the SDK treats
+  // unknown codes as transient and retries with backoff.
+  hardErrorCodes: [
+    'DOCUMENT_GENERATOR_ALREADY_IN_QUEUE',
+    'MY_APP_BAD_PAYLOAD'
+  ],
+
+  // Codes that should be returned in AjaxResult as soft errors instead of
+  // thrown — useful when you want control-flow on a specific REST error.
+  softErrorCodes: [
+    'CUSTOM_VALIDATION_ERROR'
+  ],
+
+  // For NON-IDEMPOTENT methods (any *.add, file uploads) — set to false so the
+  // SDK does NOT retry on NETWORK_ERROR / REQUEST_TIMEOUT. A client-side
+  // timeout doesn't mean the server didn't process the call; retrying creates
+  // duplicates.
+  retryOnNetworkError: false,
+
+  maxRetries: 3,
+  retryDelay: 1_000
+})
+```
+
+**The category rule needs no configuration.** On `restApi:v3` an error that arrived in the v3 error envelope carrying a 4xx other than 401/408/429 is soft, whatever its code. Through the `2.x` line this was opt-in behind a `classifyV3ErrorsByCategory` parameter; since `3.0.0` it is simply the behaviour and that parameter no longer exists — passing it is a compile error, and the fix is to delete the line.
+
+**Why the category rule exists.** The built-in soft list holds nine v3 codes; one on-premise build was measured to ship at least 39, and the set grows with every portal module. So classification by list is per-module-shipping-date, not per-error-kind: `INVALIDSELECTEXCEPTION` is soft while `INVALIDPAGINATIONEXCEPTION` — same caller mistake, same request, same HTTP 400 — throws. Pinned codes (built-in and yours) still outrank the rule; 5xx, 401, 408, 429 and all of `restApi:v2` are untouched; 403 is soft, matching the already-pinned `…ACCESSDENIEDEXCEPTION` — except `…INSUFFICIENTSCOPEEXCEPTION`, pinned hard because it is a missing OAuth grant and its v2 twin `insufficient_scope` has always thrown.
+
+**Never match on the `BITRIX_REST_V3_EXCEPTION_` prefix** — modules ship unprefixed codes such as `NOTE_SEARCH_QUERY_TOO_SHORT`. And never match on `message`: it is localised.
+
+**`…ACCESSDENIEDEXCEPTION` is not a permission signal.** On v3 it is the catch-all for *every* authentication failure: a wrong credential, a missing one, and a valid one sent over plain HTTP all answer it with **401**, byte-identically — the portal folds any `checkAuth()` failure into this one exception and drops the reason. The same code arrives with **403** for a different thing entirely: a method or controller disabled on the portal. So the code alone says only "not authorised". The SDK delivers it **soft at both statuses** — it sits in the built-in soft list, which `isSoftError` consults before it looks at any status, and a 401 here does not trigger a token refresh either (that path additionally requires `expired_token` / `invalid_token`). So pair the code with `status` to decide what to *do*, not to predict how it arrives, and if the credential is one you trust, check the URL scheme before you check scopes. (`restApi:v2` distinguishes these: `INVALID_CREDENTIALS` vs `INVALID_REQUEST` / *Https required.*)
+
+`hardErrorCodes` and `softErrorCodes` are **additive** — the built-in lists (auth/fatal codes) are always hard, and you can't remove them, only extend (per `packages/jssdk/src/types/limiters.ts:120-146`).
+
+`setRestrictionManagerParams` **replaces the parameters you name and keeps the rest** — `setRestrictionManagerParams({ maxRetries: 5 })` after the block above leaves `hardErrorCodes` and the others intact; a key set to `undefined` counts as not mentioned. The merge is **shallow**: `rateLimit` / `operatingLimit` / `adaptiveConfig` are replaced whole, their types have no optional fields, and a partial block from JavaScript is refused with `JSSDK_LIMITER_INVALID_CONFIG_BLOCK` rather than reaching a limiter half-built. To clear a list pass `hardErrorCodes: []` — spreading `...ParamsFactory.getDefault()` does not clear it, because the factory carries no such key. `getRestrictionManagerParams()` returns a copy, nested blocks included. (The method used to replace the whole configuration, so a partial update reset everything it did not mention — #479.)
+
+**`OperatingLimiter` does nothing on a default self-hosted portal, and that is correct.** It works from the `operating` / `operating_reset_at` counters in the response's `time` block, which a box sends only while its own `LoadLimiter` is switched on — off by default, and nothing in the product switches it on. The same switch gates enforcement, so such a portal is not refusing calls either: a quiet limiter is matching the portal, not missing something. `RateLimiter` and `AdaptiveDelayer` still apply. A box owner who *wants* the limit has to enable it and wire a Redis by hand — the measured steps, and the misconfiguration that silently looks like success, are in [Limiters → Enabling the operating limiter on a self-hosted portal](https://bitrix24.github.io/b24jssdk/docs/working-with-the-rest-api/limiters/#enabling-the-operating-limiter-on-a-self-hosted-portal). Do not read `time.duration` or `time.processing` for timing: on the build this was measured on (`main 26.700.0`) the portal truncates the timestamps they are derived from, which inflates `duration` by up to a second and leaves `processing` reading `0` for almost every call.
+
+> **Scope:** `setRestrictionManagerParams` updates the policy on the **`$b24` instance**, not on the call you're about to make. Every concurrent or subsequent call on the same `$b24` sees the new params until you set them again. In code paths that mix idempotent reads with non-idempotent writes on the same `$b24`, use a dedicated `$b24` instance for the non-idempotent flow instead of flipping the policy in-flight. On `restApi:v3` there is a better answer than either: pass `idempotencyKey` on the write itself and let the portal deduplicate it — see [Idempotency-Key](https://bitrix24.github.io/b24jssdk/docs/working-with-the-rest-api/call-rest-api-ver3/#idempotency-key). On `restApi:v2`, where the portal ignores the header, a per-method idempotency token plus manual reconciliation is still the only option.
+
+For heavy long-running calls, also raise the axios timeout on the underlying HTTP client:
+
+```ts
+import { ApiVersion } from '@bitrix24/b24jssdk'
+const clientAxios = $b24.getHttpClient(ApiVersion.v2).ajaxClient
+clientAxios.defaults.timeout = 120_000
+```
+
+There is a second channel, and it is the one to reach for when the setting has to
+apply from the first request: `httpOptions` at construction, on
+`initializeB24Frame` (the frame boot — it forwards the option to `B24Frame`
+unchanged), `B24Hook`, `B24Hook.fromWebhookUrl` and `B24OAuth`, merged over the
+SDK's own axios defaults.
+
+```ts
+import { B24Hook } from '@bitrix24/b24jssdk'
+
+const b24 = B24Hook.fromWebhookUrl(
+  'https://your-portal.bitrix24.com/rest/1/SECRET',
+  { httpOptions: { adapter: 'xhr' } }
+)
+```
+
+`adapter` is what it exists for. In a browser — or a worker, which the SDK treats
+alike here — it asks axios for `fetch` —
+left alone, axios walks `['xhr', 'http', 'fetch']` and takes XHR by list order,
+not by merit; outside a browser it asks for nothing. Pass `{ adapter: 'xhr' }` to
+go back, which is also the answer for a `jsdom` suite whose test double stubs
+`XMLHttpRequest`.
+
+`httpOptions` is a narrow slice of `AxiosRequestConfig` (`TypeHttpOptions`):
+`adapter`, `timeout`, `timeoutErrorMessage`, `proxy`, `httpAgent`, `httpsAgent`,
+`maxRedirects`, `maxContentLength`, `maxBodyLength`, `decompress`,
+`withCredentials`. `baseURL`, `transformRequest`, `paramsSerializer`
+and `validateStatus` are how the SDK reaches the portal and are not offered
+there — a key outside the list is dropped at construction and its name logged
+(the warning reads `httpOptions: keys not accepted at construction were
+dropped`), since a type cannot stop a value that arrives through a variable or
+from plain JavaScript. `headers` is not offered either — the type rejects it —
+though the transport still merges one that reaches it from untyped code, as it
+has since #144. All of them stay reachable through `defaults` above, where it
+reads as the deliberate act it is.
+
+The list keeps out what breaks the SDK by accident; it is not a security
+boundary. `adapter` replaces the whole transport and `proxy` / `httpAgent` route
+token-bearing traffic wherever the caller points them — both are on the list,
+because `adapter` is what the option exists for. And it reaches the two REST
+transports only: the OAuth token-refresh client builds its own axios instance, so
+`adapter`, `timeout` and `proxy` do not apply to the request that posts
+`client_secret` to the OAuth server. Note `defaults.headers['Content-Type']` no longer changes
+SDK traffic: the SDK states the JSON content type per request (see the
+`b24jssdk-filtering` skill for why that matters).
+
+## Enterprise limits
+
+`LicenseManager` (from `useB24Helper`) automatically swaps in the enterprise restriction params if the portal is enterprise. To do it manually:
+
+```ts
+import { ParamsFactory } from '@bitrix24/b24jssdk'
+
+await $b24.setRestrictionManagerParams(ParamsFactory.getEnterprise())
+```
+
+## Security checklist for event-receiver recipes
+
+When the code RECEIVES events from Bitrix24 (outbound webhook handlers, OAuth install / uninstall endpoints), apply this checklist — both anti-spoof and anti-retry-storm. Concrete worked examples live in recipes `07-webhook-handler.ts` and `12-oauth-install.ts`.
+
+- [ ] **Respond `200` first, verify after.** Bitrix24 retries any non-2xx response for up to 24 h. Send `res.status(200).send('ok')` immediately on payload receipt, then do the verification + business logic asynchronously. Failures in those async steps log + drop, not retry-cascade.
+- [ ] **Verify `application_token` for outbound webhooks.** Compare `payload.auth?.application_token` against the value from your Bitrix24 dev console (typically supplied via env var). On mismatch — log and ignore. Without this, any caller that knows the URL can replay arbitrary events.
+- [ ] **Verify `application_token` against persisted credentials on uninstall.** On `ONAPPUNINSTALL`, look up the stored creds for the incoming `member_id`, compare `application_token`, and only delete on match. Without this, anyone who reaches `/uninstall` can erase credentials for any portal whose `member_id` they guess.
+- [ ] **Persist refreshed OAuth tokens.** Always call `setCallbackRefreshAuth` on every `B24OAuth` instance to write fresh tokens back to your store. The next cold start expects them.
+- [ ] **Keep `B24Hook` server-side.** It bundles a long-lived secret, and nothing in the SDK stops that secret reaching a browser bundle — keeping it out is the application's job. The client-side warning is a smoke alarm, not a guard: it fires wherever the browser's rules apply — the main thread and any Web, Shared or Service Worker (`_checkClientSideWarning` returns early when `isServerSide()`, which is `!isBrowserLikeRuntime()`) — so on Node there is nothing to silence, and `offClientSideWarning()` there is a no-op. Do not call it in application code — per [AGENTS.md](https://github.com/bitrix24/b24jssdk/blob/main/AGENTS.md), suppressing warnings is for testing only. Calling it in a server template is worse than pointless: it silences nothing where it sits, and travels with the code if that code is ever copied into a browser, taking the one signal about the leaked secret with it.
+- [ ] **HTML-escape user input before posting to chat / IM.** When sending CRM text through `parse_mode: 'HTML'` (Telegram) or `im.message.add` HTML, escape `<` / `>` / `&` in the payload.
+
+## Picking method names
+
+| Need | Method | API version |
+| --- | --- | --- |
+| CRM entities (deals, contacts, companies, leads, smart processes) | `crm.item.{list,get,add,update,delete}` with `entityTypeId` from `EnumCrmEntityTypeId` | v2 |
+| Tasks read/write/list | `tasks.task.{add,get,update,delete,list}` | **v3** |
+| Tasks extras | `tasks.task.checklistitem.*`, … | v2 |
+| Disk | `disk.storage.getlist`, `disk.folder.{getchildren,addsubfolder}`, `disk.file.get` | v2 |
+| Profile / users | `profile`, `user.get`, `user.current` | v2 |
+| IM | `im.notify`, `im.message.add` | v2 |
+| Event log | `main.eventlog.{list,get,tail}` | **v3** |
+| Mail | `mail.mailbox.*`, `mail.message.*`, `mail.recipient.*` | **v3** |
+| Org structure (HR) | `humanresources.node.*`, `humanresources.employee.*` | **v3** |
+| Time tracking | `timeman.record.*` (read-only) | **v3** |
+
+> The version column is a recommendation, not a gate: the SDK no longer keeps a v3 allowlist, so `actions.v3.*` will send any method to the v3 endpoint (the server validates it) and `actions.v2.*` no longer warns about v3-eligible methods. Pick the version that gives you the representation you want.
+
+## When you don't know which entry point you're in
+
+Write functions against `TypeB24`:
+
+```ts
+import type { TypeB24 } from '@bitrix24/b24jssdk'
+import { EnumCrmEntityTypeId } from '@bitrix24/b24jssdk'
+
+interface Deal { id: number; title: string }
+
+export async function loadDeal($b24: TypeB24, id: number): Promise<Deal> {
+  const res = await $b24.actions.v2.call.make<{ item: Deal }>({
+    method: 'crm.item.get',
+    params: { entityTypeId: EnumCrmEntityTypeId.deal, id }
+  })
+  if (!res.isSuccess) throw new Error(res.getErrorMessages().join('; '))
+  return res.getData()!.result.item
+}
+```
+
+Same `loadDeal` works unchanged with `B24Hook`, `B24Frame`, and `B24OAuth`.

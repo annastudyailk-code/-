@@ -1,0 +1,665 @@
+---
+name: b24jssdk-rest
+description: "Call the Bitrix24 REST API through b24jssdk using the canonical actions.v{2,3}.*.make() surface. Covers call, batch, callList, fetchList, batchByChunk (and the v3-only native-keyset callTail/fetchTail and the background deferredBatch) for both API versions, picking between v2 and v3, and the rules for the new AjaxResult shape. The legacy callMethod/callBatch/callListMethod/fetchListMethod surface was removed in 3.0.0 — do not generate code against it."
+---
+
+# b24jssdk REST patterns (actions API)
+
+Every example uses `$b24` of type `TypeB24`, so the same code runs on `B24Hook`, `B24Frame`, and `B24OAuth`. The actions surface is published per API version under `$b24.actions.v2.*` and `$b24.actions.v3.*`.
+
+> The previous SDK surface — `callMethod`, `callBatch`, `callBatchByChunk`, `callListMethod`, `fetchListMethod` — was **removed in `3.0.0`** and no longer exists (see `packages/jssdk/README-AI.md`, "Removed in 3.0.0"). Code that calls it does not compile.
+>
+> The `AjaxResult` paging members — `isMore()`, `hasMore()`, `getTotal()`, `getNext()`, `fetchNext()` — are **not** in that set and are not deprecated. They are `restApi:v2`-only; see "restApi:v2 paging members" below.
+
+## Pick the API version
+
+The SDK exposes both `v2` and `v3` under `$b24.actions`. **The SDK no longer keeps a hardcoded v3 method allowlist** — the server is the source of truth for which methods exist on a portal (the authoritative list is the portal's own OpenAPI document, `rest.documentation.openapi`). So `$b24.actions.v3.*` will send *any* method to the v3 endpoint; if the method isn't a v3 method, the server returns a `METHODNOTFOUNDEXCEPTION` (a soft error on the `AjaxResult`, not an SDK throw).
+
+Method families that are known to exist on v3 today (non-exhaustive): `tasks.task.*` (incl. `list`), `mail.*`, `humanresources.*`, `timeman.record.*` (read-only), `main.eventlog.*` (incl. native `tail`), `note.*`, `rest.application.*`, `rest.incomingwebhook.*`, plus infrastructure (`batch`, `scopes`, `rest.scope.list`, `rest.documentation.openapi`).
+
+Rule of thumb:
+
+- Default to `$b24.actions.v2.*` — it works for every classic method.
+- Use `$b24.actions.v3.*` when you specifically want the v3 representation of a method (camelCase fields, the unified `{result}` envelope, native `tail`/cursor, dotted relation select). Confirm a method exists on this portal's v3 via `rest.documentation.openapi` if unsure.
+- There is no version auto-detection: the legacy `callMethod`/`callBatch` shims that defaulted to v2 are gone, so the protocol is always whichever `actions.v2.*` / `actions.v3.*` you name.
+
+## Decision tree
+
+| Goal | Use |
+| --- | --- |
+| Single REST call | `actions.v{2,3}.call.make` |
+| 2–50 related calls in one HTTP round-trip | `actions.v{2,3}.batch.make` |
+| Many independent calls (>50) | `actions.v{2,3}.batchByChunk.make` |
+| Thousands of calls that may run in the background on the portal (`restApi:v3`, plan permitting) | `actions.v3.deferredBatch.make` — one request to start, `onStatus` for progress, decoded rows at the end |
+| Read a list small enough to hold in memory and process it there | `actions.v{2,3}.callList.make` |
+| Read a large list with low memory footprint | `actions.v{2,3}.fetchList.make` (async iterator) |
+| Read a v3 method that exposes a native `tail` (keyset) action — e.g. `main.eventlog.tail` | `actions.v3.callTail.make` / `actions.v3.fetchTail.make` (v3 only) |
+| Aggregate (`sum`/`avg`/`min`/`max`/`count`/`countDistinct`) on a v3 method that exposes an `*.aggregate` action | `actions.v3.aggregate.make` (v3 only, **`@experimental`** — the contract is measured, but no shipped module publishes `*.aggregate` on any portal yet measured, so fall back to `callList` + reduce when the endpoint isn't there. Values come back as **strings**, and `null` when the filter matched nothing) |
+
+There is no manual-pagination path any more — the list helpers page for you. Two mechanisms exist, and they are not interchangeable:
+
+- **`callList` / `fetchList`** *emulate* a cursor on top of the `list` action by injecting a `[idField, '>', n]` condition into `filter` and forcing `order`. Works for any `*.list` method (v2 and v3).
+- **`callTail` / `fetchTail`** (v3 only) drive the server's *native* `tail` action via its `cursor: { field, value, order, limit }` parameter. Use these when a method publishes a `*.tail` endpoint — few modules do, so check first; the CallTail page shows how to ask the portal which ones. Full pages: [CallTail](https://bitrix24.github.io/b24jssdk/docs/working-with-the-rest-api/call-tail-rest-api-ver3/), [FetchTail](https://bitrix24.github.io/b24jssdk/docs/working-with-the-rest-api/fetch-tail-rest-api-ver3/). The cursor field must **not** appear in `filter` (the server rejects it), is auto-added to `select`, and `order: 'DESC'` requires an explicit `initialValue`.
+
+Every example uses `$b24` of type `TypeB24`, but **`actions.v3.batch` is the one place the three entry points are not interchangeable** — it does not work under `B24Frame`. See the anti-patterns at the end.
+
+`filter` on v3 is the array form or a `FilterV3` logic group — never the v2 object dialect (`{ '>id': 100 }`), which the portal rejects on every v3 method. All four walkers refuse it client-side. `callList` / `fetchList` additionally require an **array**, because they extend it with the page condition, and throw `JSSDK_ACTION_V3_LIST_FILTER_NOT_ARRAY`; `callTail` / `fetchTail` forward `filter` untouched, so a bare group is fine there and only the v2 dialect throws — `JSSDK_ACTION_V3_TAIL_FILTER_INVALID`.
+
+All of them — and the two `restApi:v2` list walkers — also throw `JSSDK_ACTION_CURSOR_STALLED` when the cursor read from a page equals the one just sent, and `JSSDK_ACTION_CURSOR_WENT_BACKWARDS` when it moves the wrong way (a server alternating between two pages never repeats the value just sent, so the first code cannot see it). Either means the page condition was dropped, so the walk can never end; it rejects rather than collecting the same pages for ever. Both checks run **before** the end-of-data stop, so a short page that repeats is reported instead of ending the walk with a truncated, overlapping result.
+
+```ts
+import { B24Hook, FilterV3 } from '@bitrix24/b24jssdk'
+
+const b24 = B24Hook.fromWebhookUrl('https://your-portal.bitrix24.ru/rest/1/SECRET')
+
+// list: the page condition is appended to `filter`, so wrap the group
+await b24.actions.v3.callList.make({
+  method: 'main.eventlog.list',
+  params: { select: ['id'], filter: [FilterV3.or(['severity', '=', 'ERROR'])] },
+  idKey: 'id',
+  customKeyForResult: 'items'
+})
+
+// tail: `filter` is forwarded verbatim, so a bare group is accepted as-is
+await b24.actions.v3.callTail.make({
+  method: 'main.eventlog.tail',
+  cursorField: 'id', // must NOT appear in `filter` — the SDK warns if it does
+  params: { select: ['id'], filter: FilterV3.or(['severity', '=', 'ERROR']) },
+  customKeyForResult: 'items'
+})
+```
+
+## `call.make` — single call
+
+```ts
+import { EnumCrmEntityTypeId } from '@bitrix24/b24jssdk'
+
+interface CrmItem { id: number; title: string; stageId: string }
+
+const response = await $b24.actions.v2.call.make<{ item: CrmItem }>({
+  method: 'crm.item.get',
+  params: {
+    entityTypeId: EnumCrmEntityTypeId.deal,
+    id: 42
+  },
+  requestId: 'deal-42'
+})
+
+if (!response.isSuccess) {
+  throw new Error(response.getErrorMessages().join('; '))
+}
+
+const deal = response.getData()!.result.item
+```
+
+For a v3 method:
+
+```ts
+interface TaskItem { id: number; title: string }
+
+const response = await $b24.actions.v3.call.make<{ item: TaskItem }>({
+  method: 'tasks.task.get',
+  params: { id: 1, select: ['id', 'title'] },
+  requestId: 'task-1'
+})
+// v3 wraps a single entity as `result.item` — including tasks, where the v2
+// method answered `result.task`.
+const task = response.getData()!.result.item
+```
+
+### Writes that must not double up (`restApi:v3`)
+
+For a v3 method that **creates, changes or deletes**, pass `idempotencyKey`.
+The portal stores the successful response against the key for 24 hours and
+replays it instead of writing twice — which covers the duplicate a retry
+policy cannot: a crashed worker rerunning its job, or an outbound event
+delivered twice.
+
+```ts
+// The key names the OPERATION, not the attempt: two attempts at the same
+// business operation must produce the same string, in any process, after any
+// restart. Derive it from your own identifiers rather than minting a UUID at
+// the call site — a restarted worker would mint a different one and write a
+// second record.
+const orderId = 1042
+const responsibleId = 1
+
+const response = await $b24.actions.v3.call.make<{ item: { id: number } }>({
+  method: 'tasks.task.add',
+  // creatorId and responsibleId are required by tasks.task.add
+  params: { fields: { title: 'Ship it', creatorId: responsibleId, responsibleId } },
+  idempotencyKey: `task-from-order-${orderId}`
+})
+
+if (response.isIdempotentReplay()) {
+  // Already done earlier — nothing new was written; skip the side effects
+  // (the notification, the counter, the outbound webhook) you would fire on a
+  // real create.
+}
+```
+
+**The integration case — a re-run of an import.** An import already carries the
+key it needs: the source system's own identifier. Use it, and re-running the
+import stops creating duplicates without a read-before-write per row.
+
+```ts
+declare const rows: Array<{ externalId: string, title: string }>
+declare const ownerId: number
+
+for (const row of rows) {
+  await $b24.actions.v3.call.make({
+    method: 'tasks.task.add',
+    params: { fields: { title: row.title, creatorId: ownerId, responsibleId: ownerId } },
+    idempotencyKey: `import-task-${row.externalId}`
+  })
+}
+```
+
+**But check the method exists on v3 first.** There is **no `crm.*` create on
+v3** — no lead, deal, contact or company (245 methods / 14 modules measured
+2026-09-05; the creating ones are `tasks.task.add`, `tasks.task.result.add`,
+`note.{collection,document,file}.add`, `humanresources.node.add` and a few
+under `rest.*` / `main.*`). So the usual integration write goes through `crm.*`
+on `restApi:v2`, where the header is ignored — for those, keep the source id in
+a field and check it before inserting. Ask the portal with
+`rest.documentation.openapi` rather than assuming.
+
+Constraints: 1–255 printable ASCII (otherwise the SDK throws
+`JSSDK_HTTP_INVALID_IDEMPOTENCY_KEY` before sending); the same key with a
+*different* body is refused, not deduplicated; the response is stored only on
+success, so keep `retryOnNetworkError: false` on long writes as well; `batch`
+takes no key; and `restApi:v2` ignores the header — the v2 transport drops it
+and warns. Full guide:
+[Idempotency-Key](https://bitrix24.github.io/b24jssdk/docs/working-with-the-rest-api/call-rest-api-ver3/#idempotency-key).
+
+## `batch.make` — array form
+
+```ts
+import { EnumCrmEntityTypeId } from '@bitrix24/b24jssdk'
+import type { AjaxResult } from '@bitrix24/b24jssdk'
+
+interface Contact { id: number; name: string }
+
+const response = await $b24.actions.v2.batch.make<{ item: Contact }>({
+  calls: [
+    ['crm.item.get', { entityTypeId: EnumCrmEntityTypeId.contact, id: 1 }],
+    ['crm.item.get', { entityTypeId: EnumCrmEntityTypeId.contact, id: 2 }]
+  ],
+  options: {
+    isHaltOnError: true,
+    returnAjaxResult: true,
+    requestId: 'batch-1'
+  }
+})
+
+if (!response.isSuccess) throw new Error(response.getErrorMessages().join('; '))
+
+// When returnAjaxResult: true, results are an array of AjaxResult<T>
+const results = response.getData()! as AjaxResult<{ item: Contact }>[]
+for (const r of results) {
+  if (r.isSuccess) console.log(r.getData()!.result.item)
+}
+```
+
+## A command's arguments go in `params`, never `query`
+
+On the wire a v3 batch item is `{ method, query, as, parallel }` — `query` is the
+portal's name for the arguments, and what its reference and every `curl` example
+show. The SDK's key is **`params`**, and it does the translation.
+
+A `v2` batch loses them the same way by a different route: there the arguments
+are serialised into the `cmd` querystring from `params`, so a command written
+with `query` goes out as `method?` with nothing after it. Measured on `user.get` with
+`filter: { ACTIVE: 'N' }`, against a portal whose only user is active: under
+`params` the portal answered 0 rows — the filter worked — and the same request
+spelled `query` answered 1 row, the active user the filter was meant to
+exclude.
+
+```ts
+// ✅
+await $b24.actions.v3.batch.make({ calls: [{ method: 'main.eventlog.list', params: { select: ['id'] } }] })
+
+// ❌ arguments read by nobody — the command goes out with an empty `query`, which
+// the portal accepts. Measured on main.eventlog.list with select+limit: 2 rows of
+// 1 field under `params`, 50 rows of 13 fields spelled `query` — the whole
+// default page, HTTP 200, no error. A wrong answer, not a failure.
+await $b24.actions.v3.batch.make({ calls: [{ method: 'main.eventlog.list', query: { select: ['id'] } } as never] })
+```
+
+A fresh object literal is a compile error. A literal assigned to a variable
+first, or commands built from a config object, a `JSON.parse`, or plain
+JavaScript, is not — the SDK warns at run time instead, one line per batch
+request, naming the ignored keys and the commands that carried them. It warns only where the
+arguments were actually lost: a command with no `params`, or one naming `query`.
+Your own `id` or `label` beside a populated `params` is left alone.
+
+## `batch.make` — named object form
+
+```ts
+import type { AjaxResult } from '@bitrix24/b24jssdk'
+interface Contact { id: number; name: string }
+interface Deal { id: number; title: string }
+
+const response = await $b24.actions.v2.batch.make<{ item: Contact } | { item: Deal }>({
+  calls: {
+    Contact: { method: 'crm.item.get', params: { entityTypeId: 3, id: 1 } },
+    Deal: ['crm.item.get', { entityTypeId: 2, id: 2 }]
+  },
+  options: { isHaltOnError: true, returnAjaxResult: true, requestId: 'batch-named' }
+})
+
+const data = response.getData()! as Record<string, AjaxResult<{ item: Contact } | { item: Deal }>>
+console.log(data.Contact.getData()!.result.item)
+console.log(data.Deal.getData()!.result.item)
+```
+
+## `batch.make` — partial errors (v2 only)
+
+Set `isHaltOnError: false` to collect per-command failures. **v3 batch is all-or-nothing** — partial errors are not surfaced. If any command in a v3 batch fails, the whole batch fails (see `README-AI.md` "Limitations").
+
+To feed one v3 command's output into a later one, give it an `as` alias and reference it with the `BatchRefV3` markers (`import { BatchRefV3 } from '@bitrix24/b24jssdk'`): `BatchRefV3.ref('alias.item.id')` (single value) or `BatchRefV3.refArray('alias.id')` (a field collected across the alias's `items[]`). The server does the substitution.
+
+```ts
+import type { AjaxResult } from '@bitrix24/b24jssdk'
+const response = await $b24.actions.v2.batch.make<{ item: Contact }>({
+  calls: arrayOfCalls,
+  options: { isHaltOnError: false, returnAjaxResult: true }
+})
+
+const items = response.getData()! as AjaxResult<{ item: Contact }>[]
+const successes = items.filter((r) => r.isSuccess)
+const failures = items.filter((r) => !r.isSuccess).map((r) => r.getErrorMessages().join('; '))
+```
+
+For **object / named-command** calls (`calls: { name: { method, params } }`), the outer `Result` keys each failure by the command name — use `response.getErrorsByKey()` / `getErrorMessagesByKey()` to get a `{ name: error }` map instead of iterating per-item results.
+
+## `batchByChunk.make` — large batches
+
+Chunk size is 50 per Bitrix24 batch limit. The action splits and re-aggregates:
+
+```ts
+import { EnumCrmEntityTypeId } from '@bitrix24/b24jssdk'
+import type { BatchCommandsArrayUniversal } from '@bitrix24/b24jssdk'
+
+const calls: BatchCommandsArrayUniversal = ids.map((id) =>
+  ['crm.item.get', { entityTypeId: EnumCrmEntityTypeId.deal, id }] as const
+)
+
+const response = await $b24.actions.v2.batchByChunk.make<{ item: CrmItem }>({
+  calls,
+  options: { isHaltOnError: false, requestId: 'bulk-1' }
+})
+
+if (!response.isSuccess) throw new Error(response.getErrorMessages().join('; '))
+
+const data = response.getData()! // Flat array of { item: CrmItem }
+const items = data.map((row) => row.item)
+```
+
+## `deferredBatch` — thousands of commands as a background job (`restApi:v3`)
+
+The portal's `rest.deferredbatch.*`: one `add` takes all commands (5000 measured, #570),
+the portal runs them in the background, and the results come back as a gzip JSON
+file. `make()` does all of it and resolves with the rows in command order:
+
+```ts
+import type { BatchCommandsArrayUniversal } from '@bitrix24/b24jssdk'
+
+// List pages, not a `get` per id: one failing command fails the whole job.
+const calls: BatchCommandsArrayUniversal = Array.from({ length: 200 }, (_, i) =>
+  ['tasks.task.list', { select: ['id', 'title'], order: { id: 'ASC' }, pagination: { page: i + 1, limit: 50 } }]
+)
+
+const response = await $b24.actions.v3.deferredBatch.make<{ items: Array<{ id: number, title: string }> }>({
+  calls,
+  onStatus: job => console.log(`job #${job.id}: ${job.status}`) // pending → processing → done
+})
+
+if (!response.isSuccess) throw new Error(response.getErrorMessages().join('; '))
+
+const titles = response.getData()!.flatMap(page => page.items.map(task => task.title))
+```
+
+To start a job in one request and collect it in another, use the steps:
+`add({ calls })` → keep `getData()!.id` → later `get(id)` / `waitFor(id)` →
+`download(id)` → `delete(id)`. `decode(bytes)` turns a file you downloaded
+yourself into rows.
+
+- Needs a plan with deferred batches; otherwise `FEATURE_NOT_AVAILABLE_ON_CURRENT_PLAN` — fall back to `batchByChunk`.
+- **v3 methods only**: a v2 method (`user.current`) is refused at `add` with `INVALID_METHOD`.
+- **All or nothing** (measured): one failing command (`tasks.task.get` of a missing id) ends the job in `error` with **no result file** — no partial rows. Use commands that cannot fail on data, e.g. list pages.
+- Duration depends on the method (5000 cheap `get`s: seconds; 500 `rest.scope.list`: over 15 min) — set `timeout`. A `processing` job cannot be deleted (`BATCH_PROCESSING`).
+- Never throws for what the portal answered: check `isSuccess`. Codes: `JSSDK_DEFERRED_BATCH_FAILED` (job `error`; `waitFor(id)` returns the job with its `errorMessage`), `_TIMEOUT`, `_ABORTED` (the job keeps running — keep its id from `onStatus`), `_DOWNLOAD_FAILED`, `_DECODE_FAILED`, `_UNEXPECTED_RESPONSE`, `_GZIP_UNSUPPORTED`; thrown before sending: `_EMPTY`.
+- One `idempotencyKey` per run, not per range: by the portal's idempotency contract (not measured for deferred batches), a key reused after the job was deleted would replay a dead id.
+- Measured through a webhook from Node. In a browser the result file is readable (`Access-Control-Allow-Origin: *`), but `idempotencyKey` is refused there (`JSSDK_HTTP_IDEMPOTENCY_KEY_BROWSER`, #573).
+- `getDownloadUrl(id)` returns a URL that carries the webhook secret or access token — do not log it; prefer `download(id)`.
+
+## `callList.make` — small lists in memory
+
+Pages through the **whole** result set and returns it as one array — there is no item ceiling; `limit` sizes a page, not the total. Internally pages with a keyset cursor on `cursorIdKey` (which defaults to `idKey`).
+
+On v3, `limit` is a **request**: each method applies its own maximum and a short page is not the end of the data. Measured — `tasks.task.list` answers 50 for `limit` 51, 100 and 1000 alike, with 60 rows available, and nothing in the response says it was capped. The walkers are cap-tolerant (they stop on the largest page the server returned); hand-rolled paging on `call.make` is not.
+
+```ts
+import { EnumCrmEntityTypeId } from '@bitrix24/b24jssdk'
+import { Text } from '@bitrix24/b24jssdk'
+
+interface CrmItem { id: number; title: string }
+
+const sixMonthsAgo = new Date()
+sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
+
+const response = await $b24.actions.v2.callList.make<CrmItem>({
+  method: 'crm.item.list',
+  params: {
+    entityTypeId: EnumCrmEntityTypeId.company,
+    filter: {
+      '=%title': 'A%',
+      '>=createdTime': Text.toB24Format(sixMonthsAgo)
+    },
+    select: ['id', 'title']
+  },
+  idKey: 'id',                    // 'id' for crm.item.*; default is 'ID' for classic methods
+  customKeyForResult: 'items',    // 'items' for crm.item.*; omit for classic methods
+  requestId: 'companies-1'
+})
+
+if (!response.isSuccess) throw new Error(response.getErrorMessages().join('; '))
+
+const items = response.getData()! // CrmItem[]
+```
+
+> **`order` is ignored** by `callList.make`. The action forces `order: { [cursorIdKey]: 'ASC' }` for cursor stability and **logs a warning** when you pass an `order` (see the `order` warning in `actions/v2/call-list.ts`). Use `filter` to narrow results.
+
+## Bounding a walk — `maxPages`, `signal`, `progress`
+
+All six walkers (`callList` / `fetchList` on both versions, `callTail` / `fetchTail` on v3) accept:
+
+| option | what it does |
+| --- | --- |
+| `maxPages?: number` | Ceiling. Raises `JSSDK_ACTION_MAX_PAGES_EXCEEDED` naming the method. **Default 10 000** — a backstop, not a policy (500 000 rows at the default page size of 50; ~83 min at the default drain rate). Must be a positive integer, or `JSSDK_ACTION_INVALID_MAX_PAGES` is raised at call time. |
+| `signal?: AbortSignal` | Throws `JSSDK_ACTION_ABORTED`. Checked at the top of each iteration, so an already-aborted signal costs no request. |
+| `progress?` | `({ pages, rows }) => void`, **eager walkers only** (`callList` / `callTail`). Counts, not a percentage — cursor paging reads no total. The streaming walkers hand you each page instead. |
+
+Neither error discards data. The eager walkers (`callList` / `callTail`) **resolve** with the rows they read and the error attached, so check `isSuccess` rather than assuming a returned list is whole — those rows are correct, merely incomplete. `fetchList` / `fetchTail` throw, having already yielded every page they read.
+
+A stalled cursor is different and still throws everywhere: there the extra rows are duplicates of ones already held, so there is nothing worth handing back.
+
+```ts
+const controller = new AbortController()
+
+const response = await $b24.actions.v3.callList.make({
+  method: 'main.eventlog.list',
+  customKeyForResult: 'items',
+  idKey: 'id',
+  maxPages: 200,
+  signal: controller.signal,
+  progress: ({ pages, rows }) => console.log(`${pages} pages, ${rows} rows`)
+})
+```
+
+The default ceiling does not replace the two cursor guards, which fire far earlier and say something more specific: the cursor came back equal to the one just sent (`JSSDK_ACTION_CURSOR_STALLED`), or moved into a value the walk had already passed (`JSSDK_ACTION_CURSOR_WENT_BACKWARDS` — a cycle of any length steps backwards somewhere, and that step is what it catches). The ceiling is what remains for a walk that is genuinely larger than expected, or one whose cursor the SDK cannot order. Strings are judged only at equal length, and then only as digits or as ISO-8601 datetimes stating the same zone with the same separator; a type change, unpadded ids, mixed-case values under a case-insensitive collation, and timestamps a DST transition reorders — offset changing across it, or no offset stated at all — are all let through, because a false "backwards" would reject a walk that is working.
+
+## On `restApi:v2`, conditions go in lowercase `filter` — never `FILTER`
+
+Applies to **both** `callList.make` and `fetchList.make`.
+
+They page by writing their own lowercase `filter`, `order` and `start`, and the portal keeps only the later of two top-level keys that differ by case. Older list methods (`user.get`, `task.item.list`, …) are *documented* with uppercase `FILTER` / `SORT` / `ORDER`, so following that documentation here is the mistake.
+
+```ts
+// ❌ conditions silently dropped — this returns every user, not employees.
+// Note there is no cast here: `TypeCallParams` carries an index signature, so
+// this type-checks. Nothing but the runtime warning catches it.
+await $b24.actions.v2.callList.make({ method: 'user.get', params: { FILTER: { USER_TYPE: 'employee' } }, idKey: 'ID' })
+
+// ❌ worse — half-migrated. `FILTER` is now the later key, so it overwrites the
+// walker's own `>ID` cursor: the same page arrives for ever and the walk throws
+// JSSDK_ACTION_CURSOR_STALLED.
+await $b24.actions.v2.callList.make({ method: 'user.get', params: { filter: { USER_TYPE: 'employee' }, FILTER: { ACTIVE: 'Y' } }, idKey: 'ID' })
+
+// ✅ moved across, uppercase key removed
+await $b24.actions.v2.callList.make({ method: 'user.get', params: { filter: { USER_TYPE: 'employee', ACTIVE: 'Y' } }, idKey: 'ID' })
+```
+
+Measured on `user.get` with four users: `FILTER: { ID: 4 }` returns all four, `filter: { ID: 4 }` returns one. `SORT` is worse and louder — on `user.get` it makes the walker's own injected `order` fail the method's validation, so the request throws `ERROR_ARGUMENT` / *"Order must be a string"*. All of these are reported with a `warning` (#483), emitted through `LoggerFactory.forcedLog`, so it reaches `console.warn` even with the default logger. This is `restApi:v2` only; v3 has no uppercase contract — its parameters are camelCase and its `filter` is the array form.
+
+## A `filter` boolean needs a JSON body
+
+`false` in a filter is only a boolean while the body is JSON. Form-encoded it is
+the string `"false"` and the portal drops the condition — rows you meant to
+exclude come back, silently. The SDK sends JSON and states the header per
+request, so ordinary calls are fine; a request interceptor installed on
+`getHttpClient(version).ajaxClient` still outranks it, and a call you rebuild by
+hand outside the SDK has to set the content type itself. See the
+`b24jssdk-filtering` skill.
+
+## `fetchList.make` — large lists, streaming
+
+Async iterator that yields chunks. Same shape as `callList.make` plus an optional `limit` for v3.
+
+```ts
+import { EnumCrmEntityTypeId } from '@bitrix24/b24jssdk'
+const generator = $b24.actions.v2.fetchList.make<CrmItem>({
+  method: 'crm.item.list',
+  params: {
+    entityTypeId: EnumCrmEntityTypeId.deal,
+    filter: { '!stageId': ['WON', 'LOSE'] },
+    select: ['id', 'title', 'stageId']
+  },
+  idKey: 'id',
+  customKeyForResult: 'items'
+})
+
+for await (const chunk of generator) {
+  for (const deal of chunk) await processDeal(deal)
+}
+```
+
+For v3:
+
+```ts
+import { Text } from '@bitrix24/b24jssdk'
+const generator = $b24.actions.v3.fetchList.make<EventLogItem>({
+  method: 'main.eventlog.list',
+  params: {
+    filter: [['timestampX', '>=', Text.toB24Format(sixMonthsAgo)]],
+    select: ['id', 'userId']
+  },
+  idKey: 'id',
+  customKeyForResult: 'items',
+  limit: 100
+})
+```
+
+> **Note the v2 vs v3 filter difference.** v2 uses prefix-keyed objects; v3 uses arrays of `[field, op, value]` triples — for nested groups build them with the typed `FilterV3` helper (`import { FilterV3 } from '@bitrix24/b24jssdk'`). See the `b24jssdk-filtering` skill.
+
+## `idKey`, `cursorIdKey` and `customKeyForResult` cheat sheet
+
+**The rule the defaults come from: `restApi:v3` field names are camelCase, `restApi:v2` names are UPPER_SNAKE.** Measured across 108 descriptors from two entities (`tasks.task` 95, `main.eventlog` 13) — not one v3 name starts with an uppercase letter. That is why `idKey` defaults to `'id'` on v3 and `'ID'` on v2, and it is a rule rather than a per-method quirk: expect it to hold for the next method too.
+
+`idKey` is the id field **in the response** (the cursor reads its value); `cursorIdKey` is the field **in the request** used for `order` and the `>` page filter, and it defaults to `idKey`. They differ only when a method spells the id one way in the request and another in the response — `tasks.task.list` **on v2** is the known case (request `ID`, response `id`), and it breaks in two different ways depending on which half you get wrong. Leave `idKey` at its default `'ID'` and the cursor reads a field the response does not carry: the walk warns and stops after the first 50 rows. Set `idKey: 'id'` but leave `cursorIdKey` defaulting to it and the opposite happens — the read works, but the request filters on `>id`, which the method ignores, so the same page returns for ever; that one now throws `JSSDK_ACTION_CURSOR_STALLED` instead of hanging. Set both. On the **v3** endpoint the same method is all-lowercase (`id` both ways, rows under `result.items`), so no override is needed.
+
+Ask the portal rather than guess: **`<entity>.field.list`** returns every field with `type`, `filterable`, `sortable`, `editable` and `requiredGroups`, under `result.items`; `<entity>.field.get` returns one, under `result.item`. Both take an optional `select` that narrows the descriptor keys. A v3 field without `Filterable` / `Sortable` is **refused**, not ignored — `BITRIX_REST_V3_EXCEPTION_VALIDATION_REQUESTVALIDATIONEXCEPTION` with the offending name in `validation[].field`. It arrives **soft** (`isSuccess === false`), not thrown: a 4xx in the v3 envelope is not an exception. `Filterable` also gates an aggregate `select`, not just `filter`. On the portal measured, `tasks.task` exposes exactly one filterable field: `id`.
+
+| Method | `idKey` (response) | `cursorIdKey` (request) | `customKeyForResult` |
+| --- | --- | --- | --- |
+| `crm.item.list` (v2) | `'id'` | — (= `idKey`) | `'items'` |
+| `crm.deal.list`, `crm.contact.list`, … (classic v2) | `'ID'` (default) | — (= `idKey`) | omit (default `result`) |
+| `tasks.task.list` (v2) | `'id'` | `'ID'` | `'tasks'` |
+| `tasks.task.list` (v3) | `'id'` | — (= `idKey`) | `'items'` |
+| `disk.folder.getchildren` | `'ID'` (default) | — (= `idKey`) | omit |
+| `main.eventlog.list` (v3) | `'id'` | — (= `idKey`) | `'items'` |
+
+Wrong `customKeyForResult` makes `getData()` return an empty array — there is no error. If you're getting `[]` and expect data, this is the first thing to check.
+
+## AjaxResult — new shape
+
+```ts
+const res = await $b24.actions.v2.call.make<{ item: CrmItem }>({
+  method: 'crm.item.get',
+  params: { entityTypeId: 2, id: 10 }
+})
+
+res.isSuccess               // boolean
+res.getData()               // SuccessPayload<T> | undefined → { result, time } | undefined
+res.getErrorMessages()      // string[] (preferred)
+res.getErrors()             // IterableIterator<Error> (values only, no keys)
+res.getErrorsByKey()        // Record<string, Error> (batch: keyed by command label, or numeric position for array-mode)
+res.getStatus()             // HTTP status
+res.getQuery()              // { method, params, requestId }
+```
+
+> `getData()` returns `undefined` when the call did not succeed — the new typing forces you to either check `isSuccess` first, or assert with `!`. Both patterns appear in the canonical SDK tests (`test/integration/js-docs/actions-v{2,3}.spec.ts`).
+
+### What `getData()` returns, per action
+
+Only `call.make` has a `result` property. Reading `.result` off the others gives `undefined` — no error, no warning, just a value that reads as an empty response (#425).
+
+| Action | `getData()` | Reach a row with |
+| --- | --- | --- |
+| `call.make` | `{ result, time }` | `getData()!.result` |
+| `batch.make` | the keyed map, or an array for the array form | `getData()!.myKey` |
+| `callList.make` | a flat array | `getData()![0]` |
+| `batchByChunk.make` | a flat array | `getData()![0]` |
+| `deferredBatch.make` / `.download` | a flat array, one row per command | `getData()![0]` |
+| `fetchList.make` | *(async generator)* — yields arrays | `for await (const chunk of …)` |
+
+With `options.returnAjaxResult: true`, each entry of a batch result is an `AjaxResult` rather than the raw payload, so you reach a row with `getData()!.myKey.getData()!.result`.
+
+### `restApi:v2` paging members — kept, but v2-only
+
+`isMore()` / `hasMore()` / `getTotal()` / `getNext()` / `fetchNext()` are **not** deprecated and are **not** going away in `3.0.0`. They work with the v2 envelope fields `next` / `total` directly.
+
+```ts
+import type { AjaxResult } from '@bitrix24/b24jssdk'
+declare const response: AjaxResult<{ ID: string }[]>
+const total: number = response.getTotal()   // restApi:v2 only
+const more: boolean = response.isMore()     // restApi:v2 only
+```
+
+On a **`restApi:v3`** response both return their empty value — `0` and `false` — because v3 sends no such field. That is not "no rows matched" or "no more pages"; there is simply nothing to read. Never branch on them under v3.
+
+`getNext(http)` / `fetchNext(http)` re-run the query at the reported `next` offset. Under `restApi:v3` they **throw** `JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3` rather than returning empty, because a silent `false` would be indistinguishable from "last page". For new paging code still prefer `callList.make` / `fetchList.make` — they hide the offset bookkeeping and work under both versions.
+
+For a v3 count use `actions.v3.aggregate.make` with `select: { count: ['id'] }` on a method that exposes an `*.aggregate` action. The count arrives as a **string** (`'18'`), keyed by function then field — `getData()?.count?.id` — so convert it with `Text.toNumber()`. The action stays `@experimental` because **no shipped module publishes `*.aggregate`** on any of the four portals checked, not because the shape is unknown; if the endpoint isn't there, reduce a `callList` client-side.
+
+**Every aggregated field must be filterable**, which is not the same as selectable. `<entity>.field.list` reports a `filterable` flag per field; only fields where it is `true` may be aggregated — on `tasks.task` that is one field of ninety-five, so assume nothing and ask. A selectable-but-not-filterable field answers a **soft** `BITRIX_REST_V3_EXCEPTION_VALIDATION_REQUESTVALIDATIONEXCEPTION` naming it in `validation[].field` — measured. Match on the code and the field, never on the message: it is localised.
+
+## Null result is passthrough
+
+A per-command `result` inside a batch can legitimately be `null` (e.g. `im.chat.get` with non-matching params — see issue #23). Type the generic as `T | null` and handle the null branch — the SDK no longer coerces to `{}`.
+
+```ts
+import type { AjaxResult } from '@bitrix24/b24jssdk'
+const response = await $b24.actions.v2.batch.make<{ result: ChatInfo | null }>({
+  calls: { Chat: ['im.chat.get', { chat_id: 999999 }] },
+  options: { returnAjaxResult: true }
+})
+const chat = (response.getData() as Record<string, AjaxResult<{ result: ChatInfo | null }>>)
+  .Chat.getData()!.result.result
+if (chat === null) {
+  // chat not found — expected branch
+}
+```
+
+## Error handling — quick template
+
+```ts
+import { AjaxError, SdkError } from '@bitrix24/b24jssdk'
+
+async function loadDeal() {
+  try {
+    const res = await $b24.actions.v2.call.make<{ item: Deal }>({
+      method: 'crm.item.get',
+      params: { entityTypeId: 2, id: 999_999 }
+    })
+    if (!res.isSuccess) {
+      // Soft errors (rare; usually you'll see throws)
+      logger.warning('non-success', { errors: res.getErrorMessages() })
+      return
+    }
+    return res.getData()!.result.item
+  } catch (e) {
+    if (e instanceof AjaxError) {
+      // Bitrix24 REST error
+      logger.error('REST error', { code: e.code, status: e.status, message: e.message, requestInfo: e.requestInfo })
+      // restApi:v3 only: `e.validation` names the field that failed, which
+      // `message` does not. Both `field` and `message` are optional.
+      for (const detail of e.validation ?? []) {
+        logger.error('invalid field', { field: detail.field, message: detail.message })
+      }
+    } else if (e instanceof SdkError) {
+      // SDK-level error (wrong API version, etc.)
+      logger.error('SDK error', { code: e.code, message: e.message })
+    } else {
+      throw e
+    }
+  }
+}
+```
+
+> **`requestInfo` is safe to log because `AjaxError` redacts it, not because
+> the call site is careful.** Its constructor runs the request params through
+> `redactSensitiveParams`, replacing `auth`, `token`, `secret`, `access_token`,
+> `refresh_token`, `client_secret`, `application_token`, `password`, `sessid`,
+> `key` and `signature` with `***REDACTED***`. So do not rebuild that context by hand from
+> the original params — a hand-assembled `{ method, params }` inherits none of
+> that and will put a live credential into the log.
+
+For tuning retry/throw behaviour per error code see the `hardErrorCodes` / `softErrorCodes` / `retryOnNetworkError` section in the `b24jssdk-core` skill.
+
+## Discover available v3 methods (OpenAPI)
+
+The portal is the source of truth for which v3 methods exist — the SDK keeps no allowlist. Ask the portal with `rest.documentation.openapi`, an ordinary v3 call that returns the portal's own OpenAPI 3.0.0 document (every v3 method available *on that portal*, with each method's request fields and response shape). Useful for an agent before generating a call: enumerate real method names and field names instead of guessing.
+
+```ts
+type OpenApiDoc = {
+  openapi: string
+  tags: Array<{ name: string, description: string }> // one per module
+  paths: Record<string, { post?: { tags?: string[], requestBody?: unknown } }> // keyed by "/method.name"
+}
+
+const res = await $b24.actions.v3.call.make<OpenApiDoc>({ method: 'rest.documentation.openapi' })
+if (!res.isSuccess) {
+  throw new Error(res.getErrorMessages().join('; '))
+}
+const doc = res.getData()?.result
+
+// every available method name
+const methods = Object.keys(doc?.paths ?? {}).map(p => p.replace(/^\//, ''))
+
+// does a method exist on this portal's v3?
+const hasNotes = Boolean(doc?.paths?.['/note.collection.list'])
+```
+
+- The document is **portal-specific** (reflects installed modules + token scopes) and **large** (100 KB+). Fetch it **once and cache it** — it's response-only and stable within a session; don't re-request per interaction.
+- Each `paths['/method.name'].post.requestBody` schema lists the accepted parameters (often with an `example` of real field names) — read those instead of inventing `select` fields.
+- Full guide: [Discovering v3 methods](https://github.com/bitrix24/b24jssdk/blob/main/docs/content/docs/2.working-with-the-rest-api/7.discovering-v3-methods.md).
+- For one entity's fields and their flags, the cheaper half of the same question: [Discovering entity fields](https://bitrix24.github.io/b24jssdk/docs/working-with-the-rest-api/discovering-entity-fields/).
+
+## Anti-patterns
+
+- ❌ `$b24.callMethod(...)`, `$b24.callBatch(...)`, etc. — removed in 3.0.0, these are compile errors now. Use the actions API.
+- ❌ `res.getNext()` / `res.fetchNext()` against a **v3** client — they throw `JSSDK_CORE_METHOD_NOT_SUPPORT_IN_API_V3`. Under v2 they work and are supported; for new code prefer `callList` / `fetchList`, which work under both versions.
+- ❌ Reading `res.getTotal()` or `res.isMore()` on a **v3** response — not an error, but they always answer `0` / `false` there because v3 sends no `total` / `next`. Under v2 they are correct and supported. For a v3 count use `actions.v3.aggregate.make` (`count`/`countDistinct`) on a method that exposes an `*.aggregate` action — remembering the count is a string, not a number.
+<!-- @check-ignore: `crm.item.get` is the deliberate anti-example this bullet is about — v3 publishes no `crm.item.*` -->
+- ❌ Calling `$b24.actions.v3.call.make({ method: 'crm.item.get', ... })` — `crm.*` is v2-only, so the v3 server returns a `METHODNOTFOUNDEXCEPTION` soft error (`response.isSuccess === false`); use `actions.v2.*` for CRM. (The SDK no longer pre-flight-throws here.)
+- ❌ Passing `order` to `callList.make` — silently ignored with a warning. Narrow with `filter` instead.
+- ❌ `customKeyForResult: 'result'` for `crm.item.list` — wrong, use `'items'`. Otherwise you'll get an empty list silently.
+- ❌ `idKey: 'ID'` for `crm.item.list` — wrong, use `'id'`. The classic `crm.deal.list` is the opposite.
+- ❌ `idKey: 'ID'` alone for `tasks.task.list` — the response id is lowercase `id`, so the cursor can't read it and paging warns and stops after 50. Use `idKey: 'id', cursorIdKey: 'ID'`.
+- ❌ `idKey: 'id'` alone for the same method — the read works but the request filters on `>id`, which the method ignores, so the same page repeats; throws `JSSDK_ACTION_CURSOR_STALLED`. Same fix: set both.
+- ❌ `Promise.all` over `callList.make` for parallel paging — internal cursor pagination is sequential by design; you'll get duplicates or skipped rows.
+- ❌ Hand-paging a v3 list method by the `nextCursor` it returns (e.g. `note.*`) — `callList` / `fetchList` page via their own `idKey` cursor and walk every page; `nextCursor` is informational and the SDK ignores it. Just use the list helpers with `idKey` + `customKeyForResult`.
+- ❌ `batch.make({ calls, isHaltOnError: false })` — batch flags at the top level are **not applied**. They belong under `options: { isHaltOnError, returnAjaxResult, requestId }`. TypeScript now rejects the literal and the SDK logs a warning for callers it cannot see, but nothing recovers the intent: `returnAjaxResult` dropped this way makes `entry.isSuccess` `undefined` on a plain object, so a batch where everything succeeded reads as a batch where everything failed (#426).
+- ❌ Reading `getData()!.result` off `batch.make` / `callList.make` / `batchByChunk.make` — only `call.make` returns that envelope. See the table above.
+- ❌ Expecting `idempotencyKey` to protect a CRM import — `crm.*` has no v3 create, so the write is v2 and the key is dropped with a warning. Check `rest.documentation.openapi` before designing around it.
+- ❌ Reaching for `batch.make` on a bulk load that must not duplicate — a batch carries no key. Loop single calls and accept the throughput cost, or accept the duplicates.
+- ❌ `idempotencyKey: crypto.randomUUID()` written at the call site for a job that can be retried by a *different* process — the restart mints a new key and writes a duplicate anyway. Derive the key from the operation (`deal-${orderId}-create`), or persist a minted one with the job before calling.
+- ❌ Reusing one `idempotencyKey` for two different writes — the portal answers HTTP 422 `…IDEMPOTENCYKEYREUSEDEXCEPTION` rather than deduplicating. Prefix by operation: `deal-42-create` vs `deal-42-close`.
+- ⚠️ `actions.v3.batch.make` / `batchByChunk.make` from a browser (`B24Frame`, or `B24OAuth` client-side) works, but the credential goes in the **query string** — on v3 the commands *are* the request body, leaving nowhere inside it for a token, and the portal's CORS preflight allows only `origin, content-type, accept`, so an `Authorization` header cannot be sent. The token then reaches the portal's access log, which a request body would not. It is not newly exposed to the user (it is in the page's JavaScript already), but if that server-side record matters, run the batch on a backend or use `actions.v2.batch.make` where the methods exist on v2. `B24Hook` appends nothing — its secret is in the URL path already.
+- ❌ `B24Hook` in a browser **or worker** bundle — leaks the webhook secret; a worker's script is fetched over the network and readable in devtools like any other. Use `B24Frame` there.
+
+## Cross-reference
+
+For v3 filter dialect / ordering / NULL handling, use the `b24jssdk-filtering` skill.

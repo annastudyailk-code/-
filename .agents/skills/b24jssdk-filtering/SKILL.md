@@ -1,6 +1,6 @@
 ---
 name: b24jssdk-filtering
-description: "Build filter, order, and select parameters for Bitrix24 REST methods called via b24jssdk's actions.v{2,3}.* API. Covers the v2 prefix dialect (greater-or-equal, less-or-equal, not, contains, exact), the v3 array-triple dialect and the typed FilterV3 builder (eq/in/between/and/or/not/build), NOT, multi-value (IN), dates via Text.toB24Format, and the order-stripping rule of callList. Load when building filtered queries."
+description: "Build filter, order, and select parameters for Bitrix24 REST methods called via b24jssdk's actions.v{2,3}.* API. Covers the v2 prefix dialect (=, =, !, %, =%), the v3 array-triple dialect ([['field', 'op', value]]) and the typed FilterV3 builder (eq/in/between/and/or/not/build), NOT, multi-value (IN), dates via Text.toB24Format, and the order-stripping rule of callList. Load when building filtered queries."
 ---
 
 # b24jssdk filtering
@@ -12,11 +12,13 @@ Bitrix24 has **two filter dialects**. They are not interchangeable — each API 
 Used by `$b24.actions.v2.{call,callList,fetchList}.make({ params: { filter: ... }})`. The operator is a prefix on the field name.
 
 ```ts
-filter: {
-  '>=opportunity': 50000,
-  '<=opportunity': 200000,
-  '!stageId': 'LOST',
-  '=%title': 'A%'
+const params = {
+  filter: {
+    '>=opportunity': 50000,
+    '<=opportunity': 200000,
+    '!stageId': 'LOST',
+    '=%title': 'A%'
+  }
 }
 ```
 
@@ -42,13 +44,13 @@ Multiple keys are combined with AND. Two operators on the same field need two se
 Plain array means `IN`:
 
 ```ts
-filter: { stageId: ['NEW', 'PREPARATION', 'EXECUTING'] }
+const params = { filter: { stageId: ['NEW', 'PREPARATION', 'EXECUTING'] } }
 ```
 
 For "not in":
 
 ```ts
-filter: { '!stageId': ['LOST', 'WON'] }
+const params = { filter: { '!stageId': ['LOST', 'WON'] } }
 ```
 
 ## v3 — array of triples
@@ -79,8 +81,8 @@ filter: [
 The two-arg form is sugar:
 
 ```ts
-['id', 42]            // same as ['id', '=', 42]
-['stageId', ['A', 'B']] // same as ['stageId', 'in', ['A', 'B']]
+const equals = ['id', 42]              // same as ['id', '=', 42]
+const oneOf = ['stageId', ['A', 'B']]  // same as ['stageId', 'in', ['A', 'B']]
 ```
 
 The long struct form supports nested groups with `or` logic and negation (rarely needed in user code):
@@ -107,6 +109,7 @@ The top-level array is implicitly `logic: 'and'`. The `type: 'filter'` key above
 For anything beyond a flat list of triples, prefer the `FilterV3` builder over hand-writing the structs — it validates operators and `in`/`between` shapes on the client (a typo fails fast instead of as a server `UNKNOWNFILTEROPERATOREXCEPTION`):
 
 ```ts
+import { Text } from '@bitrix24/b24jssdk'
 import { FilterV3 as F } from '@bitrix24/b24jssdk'
 
 // status = NEW  AND  (id in [1,2]  OR  id > 100)
@@ -135,7 +138,28 @@ If you need a specific sort order, drop down to `call.make` and page manually �
 ## `order` for single `call.make`
 
 - **v2**: object with values `'asc' | 'desc' | 'ASC' | 'DESC'` — `order: { id: 'asc', amount: 'desc' }`.
-- **v3**: object form **only** (`{ field: 'asc' | 'desc' }`). Arrays throw `InvalidOrderException`. The DTO field must carry the server-side `#[Sortable]` attribute or you'll get `DtoFieldRequiredAttributeException`.
+- **v3**: object form **only** (`{ field: 'asc' | 'desc' }`). Arrays throw `InvalidOrderException`. The DTO field must carry the server-side `#[Sortable]` attribute, or the request is **refused**: HTTP 400 with `BITRIX_REST_V3_EXCEPTION_VALIDATION_REQUESTVALIDATIONEXCEPTION` and the field name in `validation[].field`. (The specific PHP class is `DtoFieldRequiredAttributeException`, but it inherits that code and gets none of its own, so match on the code and the field — never on the message, which is localised.) `<entity>.field.list` tells you which fields are `sortable` before you send anything.
+
+## A boolean condition needs a JSON body
+
+A boolean in a `filter` survives only if the request body is **JSON**. Sent as
+`application/x-www-form-urlencoded` it arrives as the string `"false"`, the
+condition is dropped, and the call answers with rows it should have excluded —
+no error on either side. Measured on `user.get` / `ACTIVE`: JSON
+`{ ACTIVE: false }` → 0 rows, form-encoded → 1 row.
+
+The SDK states `Content-Type: application/json` on every request, per request, so
+this is handled — with two ways to undo it:
+
+- a **request interceptor** on `getHttpClient(v).ajaxClient` that sets
+  `Content-Type` runs after the SDK's config and changes the encoding;
+- building the same call **by hand** (`curl`, a webhook tester, your own client)
+  and posting form data.
+
+```ts
+// ✅ through the SDK — JSON, so the condition holds
+await $b24.actions.v2.call.make({ method: 'user.get', params: { filter: { ACTIVE: false } } })
+```
 
 ## Dates
 
@@ -148,17 +172,17 @@ const sixMonthsAgo = new Date()
 sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
 
 // v2
-filter: { '>=createdTime': Text.toB24Format(sixMonthsAgo) }
+const paramsV2 = { filter: { '>=createdTime': Text.toB24Format(sixMonthsAgo) } }
 
 // v3
-filter: [['createdTime', '>=', Text.toB24Format(sixMonthsAgo)]]
+const paramsV3 = { filter: [['createdTime', '>=', Text.toB24Format(sixMonthsAgo)]] }
 ```
 
-## Field naming — v2 (classic vs v3-style)
+## Field naming — two casings inside v2
 
 The same logical field has different names depending on the method:
 
-| Logical | Classic methods (`crm.deal.list`, …) | v3-style methods (`crm.item.list`) |
+| Logical | UPPER_SNAKE methods (`crm.deal.list`, …) | camelCase methods (`crm.item.list`) |
 | --- | --- | --- |
 | ID | `ID` | `id` |
 | Title | `TITLE` | `title` |
@@ -170,7 +194,10 @@ The same logical field has different names depending on the method:
 | Assigned to | `ASSIGNED_BY_ID` | `assignedById` |
 | Custom field | `UF_CRM_INN` | `ufCrmInn` |
 
-> Both shapes are v2-API. The casing is per-method, not per-API-version. Use the same casing across `filter`, `select`, and (where applicable) `order`. Mixing styles silently breaks paging.
+> Both shapes are v2-API, and neither is "v3-style": the casing here is per-method, not per-API-version. `crm.item.*` is camelCase for reasons of its own and is **not** a v3 method — v3 publishes no `crm.item.*` at all. Under `restApi:v3` camelCase *is* the rule, without exception across the 108 field descriptors measured; ask `<entity>.field.list` when unsure. Use the same casing across `filter`, `select`, and (where applicable) `order`. Mixing styles silently breaks paging.
+
+Full guide: [Discovering entity fields](https://bitrix24.github.io/b24jssdk/docs/working-with-the-rest-api/discovering-entity-fields/) — how to ask an entity for its own field
+list, and why a `filterable: false` field is refused rather than ignored.
 
 ## Select
 
@@ -192,6 +219,7 @@ select: ['id', 'title', 'responsible.name', 'responsible.email']
 ### v2 — open deals with amount range
 
 ```ts
+import { EnumCrmEntityTypeId } from '@bitrix24/b24jssdk'
 const response = await $b24.actions.v2.callList.make<CrmItem>({
   method: 'crm.item.list',
   params: {
@@ -211,6 +239,7 @@ const response = await $b24.actions.v2.callList.make<CrmItem>({
 ### v2 — contacts by phone substring
 
 ```ts
+import { EnumCrmEntityTypeId } from '@bitrix24/b24jssdk'
 const response = await $b24.actions.v2.callList.make<CrmItem>({
   method: 'crm.item.list',
   params: {
@@ -241,6 +270,7 @@ const response = await $b24.actions.v2.callList.make<TaskItem>({
 ### v3 — eventlog last 6 months
 
 ```ts
+import { Text } from '@bitrix24/b24jssdk'
 const sixMonthsAgo = new Date()
 sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
 sixMonthsAgo.setHours(0, 0, 0, 0)
@@ -260,6 +290,7 @@ const response = await $b24.actions.v3.callList.make<EventItem>({
 ### v3 — IN / between
 
 ```ts
+import { Text } from '@bitrix24/b24jssdk'
 filter: [
   ['responsibleId', 'in', [1, 2, 3]],
   ['createdTime', 'between', ['2026-01-01T00:00:00+03:00', '2026-03-31T23:59:59+03:00']]
@@ -280,6 +311,7 @@ On portals with multiple funnels, stage IDs come prefixed: `C2:WON`, `C4:LOSE`. 
 - ❌ `filter: [['title', 'like', 'A%']]` — `like` is not in the v3 operator set. Use v2 + `=%` for substring search.
 - ❌ Hand-assembling nested v3 groups (`{ logic, conditions }`) by hand — use the `FilterV3` builder, which validates operators and `in`/`between` shapes client-side.
 - ❌ Passing a single condition as `params.filter` (`filter: F.eq('a', 1)`) — `filter` must be an **array**; wrap it: `filter: F.build(F.eq('a', 1))` (or `[F.eq('a', 1)]`).
+- ⚠️ The array requirement is `callList` / `fetchList` only. They append the page condition to `filter`, so only an array can be extended (`JSSDK_ACTION_V3_LIST_FILTER_NOT_ARRAY`). `callTail` / `fetchTail` forward `filter` untouched and the portal takes a bare logic group as the whole filter, so `filter: F.or(...)` is accepted there — only the v2 object dialect is refused (`JSSDK_ACTION_V3_TAIL_FILTER_INVALID`). See [CallTail](https://bitrix24.github.io/b24jssdk/docs/working-with-the-rest-api/call-tail-rest-api-ver3/) and [FetchTail](https://bitrix24.github.io/b24jssdk/docs/working-with-the-rest-api/fetch-tail-rest-api-ver3/) — and note a `*.tail` endpoint is rare, so check the method has one first. Wrapping in an array works everywhere, so wrap if you want one habit.
 - ❌ Passing `order` to `callList.make` / `fetchList.make` — silently discarded with a warning.
 - ❌ Mixing `STAGE_ID` and `stageId` across `filter` and `select` — they're different fields per method.
 - ❌ Forgetting timezone in date strings — Bitrix24 portals are configured in a portal timezone. Use `Text.toB24Format()` to stay consistent.
