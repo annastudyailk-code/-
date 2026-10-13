@@ -1,13 +1,13 @@
 ---
 name: b24jssdk-recipes
-description: "End-to-end mini-apps built on the canonical b24jssdk actions.v{2,3}.* surface — CRM analytics, ERP sync, Telegram bot, mass mailing, task automation, AI assistant, web search + LLM, Disk files, webhook handler, error-handling cookbook, event registration, OAuth install handshake. Each recipe is a self-contained TypeScript program using B24Hook on the server side. Load when the user asks for a working example or a starting template."
+description: "End-to-end mini-apps built on the canonical b24jssdk actions.v{2,3}.* surface — CRM analytics, ERP sync, Telegram bot, mass mailing, task automation, AI assistant, web search + LLM, Disk files, webhook handler, error-handling cookbook, event registration, OAuth install handshake, deferred-batch export. Each recipe is a single TypeScript program using B24Hook on the server side. Load when the user asks for a working example or a starting template."
 ---
 
 # b24jssdk recipes
 
-Twelve end-to-end programs. Every recipe runs on `B24Hook` (Node.js), but each function body takes `$b24: TypeB24` so the same code works in-frame too — just swap the boot for `initializeB24Frame()`.
+Thirteen end-to-end programs. Every recipe runs on `B24Hook` (Node.js), but each function body takes `$b24: TypeB24` so the same code works in-frame too — just swap the boot for `initializeB24Frame()`. (Recipe 13 is the exception until a browser is verified: its result file is downloaded from the portal, see the DeferredBatch guide.)
 
-All recipes use the canonical **`$b24.actions.v{2,3}.*.make()`** surface. The legacy `callMethod` / `callBatch` / `callListMethod` / `fetchListMethod` is `@deprecated` for 3.0.0 — do not generate code against it.
+All recipes use the canonical **`$b24.actions.v{2,3}.*.make()`** surface. The legacy `callMethod` / `callBatch` / `callListMethod` / `fetchListMethod` was removed in 3.0.0 — do not generate code against it.
 
 | # | File | Stack | Scopes | What it does |
 | --- | --- | --- | --- | --- |
@@ -17,38 +17,97 @@ All recipes use the canonical **`$b24.actions.v{2,3}.*.make()`** surface. The le
 | 4 | `examples/04-erp-sync.ts` | Node, `node-cron` | `crm` | Two-way contact sync between Bitrix24 (via `actions.v2.*`) and a mock ERP |
 | 5 | `examples/05-disk-files.ts` | Node | `disk` | Storages → root → create folder → list files, with a `actions.v2.batch.make` round-trip |
 | 6 | `examples/06-telegram-bot.ts` | Node, `grammy`, `node-cron` | `crm` | Poll new deals via `actions.v2.call.make`, notify a Telegram chat |
-| 7 | `examples/07-webhook-handler.ts` | Node, `express` | `crm` | Express server that receives Bitrix24 outbound events; loads details with `actions.v2.call.make` |
+| 7 | `examples/07-webhook-handler.ts` | Node, `express` | `crm`, `task` | Express server that receives Bitrix24 outbound events; loads details with `actions.v2.call.make`, then creates a follow-up task with an `idempotencyKey` so a redelivered event does not create it twice |
 | 8 | `examples/08-ai-assistant.ts` | Node, `openai` | `crm`, `task` | Deal + activity timeline → GPT prompt → `actions.v3.call.make('tasks.task.add')` follow-up |
 | 9 | `examples/09-web-search-llm.ts` | Node, BYOC | `crm` | Two-step RAG; SDK posts the answer to a deal's timeline via `actions.v2.call.make('crm.timeline.comment.add')` |
-| 10 | `examples/10-error-handling.ts` | Node | any | Error-handling cookbook: AjaxError vs SdkError taxonomy; `hardErrorCodes` / `softErrorCodes` / `retryOnNetworkError` knobs via `setRestrictionManagerParams`; non-idempotent-call safety |
+| 10 | `examples/10-error-handling.ts` | Node | any | Error-handling cookbook: AjaxError vs SdkError taxonomy; `hardErrorCodes` / `softErrorCodes` / `retryOnNetworkError` knobs via `setRestrictionManagerParams`; non-idempotent-call safety, with `idempotencyKey` as the v3 answer |
 | 11 | `examples/11-event-registration.ts` | Node | `crm` | CLI tool — list / bind / unbind outbound webhook events (`event.get`, `event.bind`, `event.unbind`). Pairs with recipe 7. |
 | 12 | `examples/12-oauth-install.ts` | Node, `express` | OAuth app | OAuth install handshake: handle `ONAPPINSTALL` / `ONAPPUPDATE` / `ONAPPUNINSTALL` events, persist tokens per portal, build `B24OAuth` on demand, refresh callback writes new tokens back to storage |
+| 13 | `examples/13-deferred-batch-export.ts` | Node | `task` | Bulk export of thousands of tasks (list pages, since one failing command fails the job) as ONE background job via `actions.v3.deferredBatch` — `make()` with an `onStatus` progress callback, or the `add` → `waitFor` → `download` → `delete` steps across two runs; writes JSON Lines |
 
 ## Shared library (`lib/`)
 
 Pure, I/O-free helpers extracted from recipes so they can be unit-tested without a live portal.
 
+`lib/` is for helpers where a second hand-written copy is a *defect* — a security
+primitive, or logic with edge cases a test pins. It is not for shared plumbing: these
+are recipes, and every extraction costs a reader the ability to lift one file and run
+it. When in doubt, leave the code in the recipe.
+
+Worked example of the rule: `bootB24()` is byte-identical in twelve of the thirteen
+recipes and stays that way on purpose. It has no edge cases to pin and no security
+weight, and it is the first thing a reader needs to see when they open a recipe —
+hiding it behind an import would cost more than the duplication does.
+
+Recipes 06 and 12 end with a guard instead of a bare `main()` call:
+
+```ts
+import { pathToFileURL } from 'node:url'
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((e: unknown) => {
+    // Raw console.error, so structured-logger formatting cannot hide the trace.
+    console.error('\n[recipe failed]', e instanceof Error ? `${e.name}: ${e.message}` : String(e))
+    process.exitCode = 1
+  })
+}
+```
+
+`npx tsx 06-telegram-bot.ts` still runs exactly as before — the guard is only false
+when the file is *imported*, which is what the unit tests do to exercise `tick`'s
+cursor logic and the uninstall token check without opening a Telegram connection or
+binding a port. Keep it when copying those two recipes. Before adding it to a third, prefer the
+`lib/` route above: extract the logic and test it there. Reach for the guard only when
+the function cannot reasonably leave the recipe — `tick` closes over a live bot and the
+poll cursor, `handleUninstall` is an Express handler — because two shapes of recipe is
+already one more than ideal, and the guard spreading to all thirteen would quietly retire
+the `lib/` convention. The exported `function`s in those files are exported for the same
+reason, and `export` is inert when the file runs directly.
+
+One deployment caveat: the guard compares `import.meta.url` against `process.argv[1]`.
+Under an exotic launcher that rewrites either — a wrapper CLI, some loader shims — the
+comparison can come out false, and the process would exit 0 having started nothing.
+Check for the recipe's startup log line rather than trusting the exit code.
+
 | File | Exports | Used by |
 | --- | --- | --- |
-| `lib/funnel.ts` | `baseStage`, `analyseFunnel`, `DealRow`, `StageStat` | recipe 01 |
+| `lib/funnel.ts` | `baseStage`, `analyseFunnel`, `DealRow`, `StageStat` | recipes 01, 03, 06 |
+| `lib/crypto.ts` | `safeEqual` | recipes 07, 12 |
+| `lib/portal-url.ts` | `checkPortalUrls` | recipe 12 |
 
-`baseStage(s)` strips the multi-funnel category prefix (`"C2:WON"` → `"WON"`).  
+`baseStage(s)` strips the multi-funnel category prefix (`"C2:WON"` → `"WON"`), falling
+back to the original string when the part after the colon is empty (`"C2:"` → `"C2:"`).
+Import it from `lib/funnel` rather than re-declaring it in a recipe: 03 and 06 each
+carried their own copy that returned `""` for that case. No recipe's control flow
+actually differed — neither `""` nor `"C2:"` matches a stage key — but the copies had
+drifted from the tested one unnoticed, and the next divergence might not be harmless.  
 `analyseFunnel(deals)` groups deals by raw `stageId` key, summing counts and opportunity amounts.
+
+`safeEqual(a, b)` is a constant-time compare for secrets and tokens. It had the same
+two-copy problem as `baseStage`, in recipes 07 and 12. Never re-declare this one: a
+constant-time compare that drifts in one of two forks is a vulnerability that reads
+like a refactor, and `===` on a token is the bug it exists to prevent.
 
 ## Boot snippet (shared by all recipes)
 
 ```ts
-import { B24Hook, LoggerBrowser, type TypeB24 } from '@bitrix24/b24jssdk'
+import { B24Hook, ConsoleV2Handler, LogLevel, Logger, type TypeB24 } from '@bitrix24/b24jssdk'
 
 export function bootB24(): TypeB24 {
   const url = process.env.B24_HOOK
   if (!url) throw new Error('B24_HOOK env var is required (incoming webhook URL)')
   const $b24 = B24Hook.fromWebhookUrl(url)
-  $b24.offClientSideWarning()
   return $b24
 }
 
-export const logger = LoggerBrowser.build('Recipe', process.env.NODE_ENV !== 'production')
+// Recipes run under Node, so the console handler is created explicitly with
+// `useStyles: false` — the browser factory emits ANSI-free CSS styling that a
+// terminal prints as literal noise.
+export const logger = Logger.create('Recipe')
+logger.pushHandler(new ConsoleV2Handler(
+  process.env.NODE_ENV === 'production' ? LogLevel.ERROR : LogLevel.INFO,
+  { useStyles: false }
+))
 ```
 
 The snippet is inlined into each recipe file for copy-paste convenience.
@@ -69,13 +128,18 @@ Inside the recipes the split is:
 
 ## Field-naming choice
 
-CRM v3-style methods (`crm.item.list`) use camelCase fields: `stageId`, `assignedById`, `opportunity`, `createdTime`. Classic methods (`tasks.task.add`, `crm.activity.list`, `crm.timeline.comment.add`) use uppercase: `TITLE`, `DESCRIPTION`, `OWNER_TYPE_ID`. Recipes follow this split.
+The newer CRM methods (`crm.item.list`) use camelCase fields: `stageId`, `assignedById`, `opportunity`, `createdTime`. The classic ones (`tasks.task.add`, `crm.activity.list`, `crm.timeline.comment.add`) use uppercase: `TITLE`, `DESCRIPTION`, `OWNER_TYPE_ID`. Recipes follow this split. Both are `restApi:v2` — `crm.item.*` is camelCase for reasons of its own, not because it is v3; the v3 endpoint publishes no `crm.item.*`. Under `restApi:v3` camelCase is the rule everywhere, and `<entity>.field.list` answers it per entity — see [Discovering entity fields](https://bitrix24.github.io/b24jssdk/docs/working-with-the-rest-api/discovering-entity-fields/).
 
 ## Running
 
 ```bash
 # 1. Install: at the repo root or in a fresh project
 pnpm add @bitrix24/b24jssdk
+# Copying a single recipe out of this repo? Some recipes import a shared
+# helper and need it copied alongside, keeping the ../lib/ path:
+#   recipes 1, 3, 6:  lib/funnel.ts  (baseStage)
+#   recipes 7, 12:    lib/crypto.ts  (safeEqual)
+# Every other recipe is standalone.
 # Recipe-specific deps as needed:
 #   recipe 4: pnpm add node-cron
 #   recipe 6: pnpm add grammy node-cron
@@ -83,9 +147,12 @@ pnpm add @bitrix24/b24jssdk
 #   recipe 8: pnpm add openai
 #   recipe 9: pnpm add openai
 #   recipe 12: pnpm add express
+# Recipe 12 also honours B24_OAUTH_STORE — where to write the OAuth token
+# store. Defaults to .oauth-store.json in the working directory, which is
+# rarely where portal credentials should live on a real server.
 
 # 2. Set env
-export B24_HOOK='https://YOUR_PORTAL.bitrix24.com/rest/{user_id}/{webhook_code}'
+export B24_HOOK='https://YOUR_PORTAL.bitrix24.com/rest/1/k32t88gf3azpmwv3'
 
 # 3. Run with tsx (no build step)
 npx tsx examples/01-crm-analytics.ts
