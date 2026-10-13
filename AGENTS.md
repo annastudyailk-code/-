@@ -13,9 +13,9 @@
 ## Основные связки
 
 - Tilda: `tilda`, `cro`, `copywriting`, `site-architecture`, `seo-page`.
-- Яндекс Карты и Яндекс Бизнес: `seo-maps`, `seo-local`, `local-seo-manager`, `page-play-builder`, `directory-submissions`.
+- Яндекс Карты и Яндекс Бизнес: `google-yandex-2gis-local-seo`, `seo-maps`, `seo-local`, `local-competitor-analysis`, `review-management`, `local-reporting`, `local-seo-manager`.
 - Яндекс Директ: `direct`, `ad-account-auditor`, `search-term-miner`, `budget-pacing-monitor`, `campaign-analytics`.
-- Bitrix24: `bitrix24-agent`, `b24jssdk-filtering`, `b24jssdk-recipes`, `revops`.
+- Bitrix24: `bitrix24-agent`, `b24jssdk-core`, `b24jssdk-rest`, `b24jssdk-filtering`, `b24jssdk-recipes`, `analytics`, `attribution`.
 - Figma и дизайн: `ui-ux-pro-max`, `figma-preflight`, `reference-interpreter`, `component-audit`, `figma-variable-audit`.
 - Проверка SEO-подрядчика: `seo-audit`, `seo-technical`, `seo-content`, `seo-local`, `seo-maps`, `seo-backlinks`.
 - Анализ конкурентов, полный цикл: `competitive-platform-analysis` → `benchmark-methodology` → `competitive-report-structure`.

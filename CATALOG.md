@@ -1,4 +1,4 @@
-# Каталог 167 навыков
+# Каталог 173 навыков
 
 Все имена уникальны. В Codex навык можно вызвать как `$имя-навыка`.
 
@@ -220,6 +220,15 @@
 | `$market-research` | Use when doing upstream market-research methodology — sizing a market as TAM/SAM/SOM computed BOTH top-down and bottoms-up (never a single unsourced number), planning a survey s… | [файл](https://github.com/alirezarezvani/claude-skills/blob/aa8d778811a557a2c28ccadda4cf3d0bd028a4cc/.gemini/skills/market-research/SKILL.md) |
 | `$marketing-ops` | Central router for the marketing skill ecosystem. Use when unsure which marketing skill to use, when orchestrating a multi-skill campaign, or when coordinating across content, S… | [файл](https://github.com/alirezarezvani/claude-skills/blob/aa8d778811a557a2c28ccadda4cf3d0bd028a4cc/marketing-skill/skills/marketing-ops/SKILL.md) |
 
+## Локальное SEO, Яндекс Карты и отзывы (4)
+
+| Навык | Что делает | Исходник |
+|---|---|---|
+| `$local-competitor-analysis` | Анализ местных конкурентов; адаптировать методику Google под Яндекс | [файл](https://github.com/garrettjsmith/localseoskills/blob/main/skills/local-competitor-analysis/SKILL.md) |
+| `$local-reporting` | Отчёты о локальном SEO и эффективности | [файл](https://github.com/garrettjsmith/localseoskills/blob/main/skills/local-reporting/SKILL.md) |
+| `$review-management` | Анализ отзывов и репутации | [файл](https://github.com/garrettjsmith/localseoskills/blob/main/skills/review-management/SKILL.md) |
+| `$google-yandex-2gis-local-seo` | Яндекс Бизнес, Карты и 2ГИС; экспериментальный источник, проверять по официальным правилам | [файл](https://github.com/2gelbuy/google-yandex-2gis-local-seo-skill/blob/main/skills/google-yandex-2gis-local-seo/SKILL.md) |
+
 ## Tilda (1)
 
 Источник: [terminalskills](https://github.com/TerminalSkills/skills/tree/7a5cc96749b07bcbd33d4f27e98a26a3dba456ca)
@@ -244,11 +253,13 @@
 |---|---|---|
 | `$bitrix24-agent` | Design, implement, debug, and harden integrations between AI agents and Bitrix24 REST API (webhooks, OAuth 2.0, scopes, events, batch, limits, REST 3.0). Use whenever the user w… | [файл](https://github.com/vrtalex/bitrix24-skill/blob/73e781d48d2023f75f6e20afb5220d19bbd53e1a/skills/bitrix24-agent/SKILL.md) |
 
-## Официальные рецепты Bitrix24 (2)
+## Официальные инструменты Bitrix24 (4)
 
 Источник: [bitrix24-b24jssdk](https://github.com/bitrix24/b24jssdk/tree/32c5256ff0e3b13a1d3c44abd05677d9b7b3fdd2)
 
 | Навык | Что делает | Исходник |
 |---|---|---|
+| `$b24jssdk-core` | Подключение, авторизация, обработка сбоев | [файл](https://github.com/bitrix24/b24jssdk/blob/main/skills/b24jssdk-core/SKILL.md) |
+| `$b24jssdk-rest` | Работа с REST API v2/v3 | [файл](https://github.com/bitrix24/b24jssdk/blob/main/skills/b24jssdk-rest/SKILL.md) |
 | `$b24jssdk-filtering` | Build filter, order, and select parameters for Bitrix24 REST methods called via b24jssdk's actions.v{2,3}.* API. Covers the v2 prefix dialect (greater-or-equal, less-or-equal, n… | [файл](https://github.com/bitrix24/b24jssdk/blob/32c5256ff0e3b13a1d3c44abd05677d9b7b3fdd2/skills/b24jssdk-filtering/SKILL.md) |
 | `$b24jssdk-recipes` | End-to-end mini-apps built on the canonical b24jssdk actions.v{2,3}.* surface — CRM analytics, ERP sync, Telegram bot, mass mailing, task automation, AI assistant, web search +… | [файл](https://github.com/bitrix24/b24jssdk/blob/32c5256ff0e3b13a1d3c44abd05677d9b7b3fdd2/skills/b24jssdk-recipes/SKILL.md) |

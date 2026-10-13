@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-09",
+  "generated_at": "2026-10-13",
   "technical_adaptation": "Only YAML frontmatter and relative dependency links were normalized; workflow bodies are from the cited upstream repositories.",
   "sources": {
     "coreyhaines-marketingskills": {
@@ -44,7 +44,7 @@
     },
     "bitrix24-b24jssdk": {
       "repository": "https://github.com/bitrix24/b24jssdk",
-      "commit": "32c5256ff0e3b13a1d3c44abd05677d9b7b3fdd2"
+      "commit": "99923961a1ea5b78a08460665067da99805e5e"
     },
     "everything-claude-code": {
       "repository": "https://github.com/affaan-m/ECC",
@@ -57,6 +57,14 @@
     "anthropics-knowledge-work-plugins": {
       "repository": "https://github.com/anthropics/knowledge-work-plugins",
       "commit": "0d3cc1898b2881069664d61333b5aacfcb54ae41"
+    },
+    "garrettjsmith-localseoskills": {
+      "repository": "https://github.com/garrettjsmith/localseoskills",
+      "commit": "405ce209775f8cb8f9dbaa511656594bb682cf9f"
+    },
+    "2gelbuy-local-seo": {
+      "repository": "https://github.com/2gelbuy/google-yandex-2gis-local-seo-skill",
+      "commit": "eab3e6d1018d21acbb97b461e699405fc7efc31f"
     }
   },
   "skills": {
@@ -727,6 +735,30 @@
     "competitive-brief": {
       "source": "anthropics-knowledge-work-plugins",
       "source_path": "marketing/skills/competitive-brief/SKILL.md"
+    },
+    "b24jssdk-core": {
+      "source": "bitrix24-b24jssdk",
+      "source_path": "skills/b24jssdk-core/SKILL.md"
+    },
+    "b24jssdk-rest": {
+      "source": "bitrix24-b24jssdk",
+      "source_path": "skills/b24jssdk-rest/SKILL.md"
+    },
+    "local-competitor-analysis": {
+      "source": "garrettjsmith-localseoskills",
+      "source_path": "skills/local-competitor-analysis/SKILL.md"
+    },
+    "local-reporting": {
+      "source": "garrettjsmith-localseoskills",
+      "source_path": "skills/local-reporting/SKILL.md"
+    },
+    "review-management": {
+      "source": "garrettjsmith-localseoskills",
+      "source_path": "skills/review-management/SKILL.md"
+    },
+    "google-yandex-2gis-local-seo": {
+      "source": "2gelbuy-local-seo",
+      "source_path": "skills/google-yandex-2gis-local-seo/SKILL.md"
     }
   }
 }
