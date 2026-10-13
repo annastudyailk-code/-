@@ -1,5 +1,11 @@
 ---
 name: tracking-plan
+description: "Master analytics tracking plan for PLG and B2B SaaS — unified event taxonomy, pixel strategy (1P and 3P tagging), marketing attribution architecture, CDP implementation (Segment, Rudderstack), product analytics (Amplitude, Mixpanel, PostHog), CRM tracking (HubSpot, Salesforce), and analytics infrastructure design. Use when building a complete tracking plan, designing analytics architecture, implementing product analytics, or aligning marketing and product tracking. Triggers on: \"tracking plan\", \"analytics plan\", \"event tracking architecture\", \"pixel strategy\", \"analytics for PLG\", \"SaaS analytics\"."
+---
+## Original skill metadata
+
+```yaml
+name: tracking-plan
 description: >-
   Master analytics tracking plan for PLG and B2B SaaS — unified event taxonomy,
   pixel strategy (1P and 3P tagging), marketing attribution architecture, CDP
@@ -27,7 +33,8 @@ metadata:
     - "Brian Balfour (Reforge) — Growth models and tracking"
     - "OpenView — PLG benchmarks and metrics"
     - "Avo — Tracking plan governance and code generation"
----
+```
+
 
 # Analytics Tracking Plan
 

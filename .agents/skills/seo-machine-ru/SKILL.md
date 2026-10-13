@@ -1,12 +1,19 @@
 ---
 name: seo-machine-ru
 description: "SEO/GEO/AEO контент-машина: лонгриды под Яндекс (Wordstat) и Tilda, семантическое ядро. Триггеры: «напиши SEO-статью», «попасть в AI-ответы»."
+---
+## Original skill metadata
+
+```yaml
+name: seo-machine-ru
+description: "SEO/GEO/AEO контент-машина: лонгриды под Яндекс (Wordstat) и Tilda, семантическое ядро. Триггеры: «напиши SEO-статью», «попасть в AI-ответы»."
 metadata:
   version: 1.1.0
   updated: 2026-06-03
   ported_from: TheCraigHewitt/seomachine (+ marketingskills ai-seo/seo-audit/programmatic-seo/competitors)
   reuses: yandex, tilda, competitive-analysis
----
+```
+
 
 # SEO / GEO / AEO машина (RU)
 

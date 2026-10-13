@@ -1,5 +1,11 @@
 ---
 name: gtm-metrics
+description: "Build a GTM metrics system for SaaS: funnel conversion, pipeline velocity, win rates, CAC, payback, NRR, sales efficiency, growth accounting, and executive dashboards. Use when creating metrics dashboards, board reports, revenue reviews, operating cadence, or diagnosing growth constraints."
+---
+## Original skill metadata
+
+```yaml
+name: gtm-metrics
 description: >-
   Build a GTM metrics system for SaaS: funnel conversion, pipeline velocity, win rates, CAC, payback, NRR, sales efficiency, growth accounting, and executive dashboards. Use when creating metrics dashboards, board reports, revenue reviews, operating cadence, or diagnosing growth constraints.
 license: MIT
@@ -11,7 +17,8 @@ metadata:
   tags: [saas-metrics, cac, ltv, nrr, magic-number, rule-of-40, pipeline, gtm-index, benchmarks]
   related_skills: [campaign-analytics, attribution, saas-metrics-calculator, pipeline-management, saas-outcomes, financial-modeling]
   frameworks: [Winning by Design GTM Index, David Skok SaaS Metrics, Meritech Capital Public SaaS Benchmarks, Force Management Pod Economics, ChartMogul Benchmarks, OpenView Benchmarks, Henry Schuck (ZoomInfo) Public-Company GTM Metrics, John McMahon (CRO Board Reporting — 5-quarter model, productivity per rep), Frank Slootman (Snowflake Consumption Metrics), Dharmesh Shah (HubSpot) Flywheel NRR, Aneesh Lal (Wishly Group) B2B Influencer Attribution, Chris Walker (Refine Labs) Dark Social]
----
+```
+
 # GTM Metrics
 
 ## Overview

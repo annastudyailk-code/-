@@ -1,5 +1,11 @@
 ---
 name: yandex-metrika-analytics
+description: "Use when analyzing Yandex Metrika website analytics via the yandex-metrika MCP server (list_counters, get_report, get_bytime, get_drilldown, compare_periods, list_goals, list_segments, list_filters, list_labels, list_accounts, get_counter, list_grants) and the user asks why traffic, conversions, SEO, sources, pages, campaigns, or business metrics changed, or asks for a weekly/monthly report, week-over-week comparison, or page-level diagnosis."
+---
+## Original skill metadata
+
+```yaml
+name: yandex-metrika-analytics
 description: Use when analyzing Yandex Metrika website analytics via the yandex-metrika MCP server (list_counters, get_report, get_bytime, get_drilldown, compare_periods, list_goals, list_segments, list_filters, list_labels, list_accounts, get_counter, list_grants) and the user asks why traffic, conversions, SEO, sources, pages, campaigns, or business metrics changed, or asks for a weekly/monthly report, week-over-week comparison, or page-level diagnosis.
 version: 0.1.0
 author: ShalomGH
@@ -10,7 +16,8 @@ metadata:
     tags: [yandex-metrika, analytics, marketing, seo, traffic, conversions, mcp]
     related_skills: [analytics, seo-audit, performance-reporter]
     requires_mcp: yandex-metrika
----
+```
+
 
 # Yandex Metrika Analytics (ShalomGH/yandex-metrika-mcp)
 
