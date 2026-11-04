@@ -1,4 +1,4 @@
-# Каталог 179 навыков
+# Каталог 180 навыков
 
 Все имена уникальны. В Codex навык можно вызвать как `$имя-навыка`.
 
@@ -283,3 +283,9 @@
 | [$geo-seo-claude](.agents/skills/geo-seo-claude/SKILL.md) | Проверка цитируемости и наблюдаемого присутствия в AI-ответах с разделением эвристики и измеренных результатов | [zubair-trabzada/geo-seo-claude](https://github.com/zubair-trabzada/geo-seo-claude/tree/989cae01e8ebbc42a9ec798eb9e7cb423f5ec89c) |
 
 Происхождение, адаптация и границы проверки: [проверка дополнений](SKILL_ADDITION_REVIEW_2026-11-04.md).
+
+## Метатеги каталога 1С-Битрикс (1)
+
+| Навык | Назначение | Источник |
+|---|---|---|
+| [$bitrix-catalog-seo](.agents/skills/bitrix-catalog-seo/SKILL.md) | Источник и наследование Title, Description и H1, собственные поля, вывод HTML/AJAX, точечные изменения и откат в 1С-Битрикс CMS и Aspro | [BXMax, адаптация](https://github.com/bxmaximum/bitrix-framework-skills/tree/70f487dacb46a5ac92719923bcd4a5ea23fe0b7d) |
