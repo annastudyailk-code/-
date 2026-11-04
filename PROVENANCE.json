@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-10-13",
-  "technical_adaptation": "Only YAML frontmatter and relative dependency links were normalized; workflow bodies are from the cited upstream repositories.",
+  "generated_at": "2026-11-04",
+  "technical_adaptation": "Earlier imports retain their recorded adaptations. The 2026-11-04 claude-blog and geo-seo-claude additions are explicitly scoped text-only adaptations for Codex/Russian B2B and Bitrix; upstream executables, installers, integrations and automatic external writes are excluded. See per-skill adaptation fields and SKILL_ADDITION_REVIEW_2026-11-04.md.",
   "sources": {
     "coreyhaines-marketingskills": {
       "repository": "https://github.com/coreyhaines31/marketingskills",
@@ -70,6 +70,16 @@
       "repository": "https://github.com/annastudyailk-code/-",
       "commit": "241be4d4eb6f21800b63b98707eac977e68e5e18",
       "note": "Four skills existed before 2026-10-13 upgrade; original upstream provenance not verified"
+    },
+    "claude-blog": {
+      "repository": "https://github.com/AgriciDaniel/claude-blog",
+      "commit": "4f9c2cb8fd17f594e868d6c2ce0e8fb2c971f987",
+      "license": "MIT"
+    },
+    "geo-seo-claude": {
+      "repository": "https://github.com/zubair-trabzada/geo-seo-claude",
+      "commit": "989cae01e8ebbc42a9ec798eb9e7cb423f5ec89c",
+      "license": "MIT"
     }
   },
   "skills": {
@@ -784,6 +794,24 @@
       "source": "preexisting-repository",
       "source_path": ".agents/skills/yandex-metrika-analytics/SKILL.md",
       "note": "Pre-existing source, upstream not verified in this update"
+    },
+    "claude-blog": {
+      "source": "claude-blog",
+      "source_path": "skills/blog-write/SKILL.md",
+      "adaptation": "Text-only Codex workflow derived from upstream with separate research, drafting and editorial verification; not a complete Claude Code plugin. Exact reviewed sources and copied excerpts documented in skill references and SKILL_ADDITION_REVIEW_2026-11-04.md.",
+      "additional_source_paths": [
+        "agents/blog-reviewer.md"
+      ]
+    },
+    "geo-seo-claude": {
+      "source": "geo-seo-claude",
+      "source_path": "geo/SKILL.md",
+      "adaptation": "Text-only Codex adaptation focused on citability and observable AI answer evidence for Russian B2B. Heuristic scores are not search visibility. No runtime, installers or external account integration included; see review.",
+      "additional_source_paths": [
+        "skills/geo-citability/SKILL.md",
+        "skills/geo-brand-mentions/SKILL.md",
+        "skills/geo-compare/SKILL.md"
+      ]
     }
   }
 }
