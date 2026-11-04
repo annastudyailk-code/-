@@ -1,6 +1,6 @@
 ---
 name: bitrix-catalog-seo
-description: Diagnose and prepare targeted Title, Description and H1 changes for catalog sections and products in 1C-Bitrix Site Management and Aspro, including inherited SEO templates, local overrides and rendered metadata. Use for Bitrix CMS metadata duplication, wrong product families and inheritance regressions.
+description: "Diagnose and prepare targeted Title, Description and H1 changes for catalog sections and products in 1C-Bitrix Site Management and Aspro, including inherited SEO templates, local overrides and rendered metadata. Use for Bitrix CMS metadata duplication, wrong product families and inheritance regressions."
 ---
 
 # Метатеги каталога 1С-Битрикс

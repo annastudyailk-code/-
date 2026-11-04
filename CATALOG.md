@@ -1,4 +1,4 @@
-# Каталог 177 навыков
+# Каталог 180 навыков
 
 Все имена уникальны. В Codex навык можно вызвать как `$имя-навыка`.
 
@@ -272,3 +272,20 @@
 | `$seo-machine-ru` | SEO-материалы для российской выдачи | [локальный файл](.agents/skills/seo-machine-ru/SKILL.md) |
 | `$tracking-plan` | План аналитики, событий и атрибуции | [локальный файл](.agents/skills/tracking-plan/SKILL.md) |
 | `$yandex-metrika-analytics` | Анализ Яндекс.Метрики; требует отдельного MCP-доступа | [локальный файл](.agents/skills/yandex-metrika-analytics/SKILL.md) |
+
+## Текстовые адаптации по запросу от 4 ноября 2026 (2)
+
+Это адаптации методик для Codex, а не установленные исполняемые плагины Claude Code. Исходные команды, установщики, автопубликация и сторонние интеграции не включены.
+
+| Навык | Назначение | Источник |
+|---|---|---|
+| [$claude-blog](.agents/skills/claude-blog/SKILL.md) | Исследование источников, статья и независимая редакционная проверка для русского промышленного B2B; подготовка к публикации в Битриксе | [AgriciDaniel/claude-blog](https://github.com/AgriciDaniel/claude-blog/tree/4f9c2cb8fd17f594e868d6c2ce0e8fb2c971f987) |
+| [$geo-seo-claude](.agents/skills/geo-seo-claude/SKILL.md) | Проверка цитируемости и наблюдаемого присутствия в AI-ответах с разделением эвристики и измеренных результатов | [zubair-trabzada/geo-seo-claude](https://github.com/zubair-trabzada/geo-seo-claude/tree/989cae01e8ebbc42a9ec798eb9e7cb423f5ec89c) |
+
+Происхождение, адаптация и границы проверки: [проверка дополнений](SKILL_ADDITION_REVIEW_2026-11-04.md).
+
+## Метатеги каталога 1С-Битрикс (1)
+
+| Навык | Назначение | Источник |
+|---|---|---|
+| [$bitrix-catalog-seo](.agents/skills/bitrix-catalog-seo/SKILL.md) | Источник и наследование Title, Description и H1, собственные поля, вывод HTML/AJAX, точечные изменения и откат в 1С-Битрикс CMS и Aspro | [BXMax, адаптация](https://github.com/bxmaximum/bitrix-framework-skills/tree/70f487dacb46a5ac92719923bcd4a5ea23fe0b7d) |
