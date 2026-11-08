@@ -1,223 +1,134 @@
 ---
 name: yandex-metrika-analytics
-description: "Use when analyzing Yandex Metrika website analytics via the yandex-metrika MCP server (list_counters, get_report, get_bytime, get_drilldown, compare_periods, list_goals, list_segments, list_filters, list_labels, list_accounts, get_counter, list_grants) and the user asks why traffic, conversions, SEO, sources, pages, campaigns, or business metrics changed, or asks for a weekly/monthly report, week-over-week comparison, or page-level diagnosis."
----
-## Original skill metadata
-
-```yaml
-name: yandex-metrika-analytics
-description: Use when analyzing Yandex Metrika website analytics via the yandex-metrika MCP server (list_counters, get_report, get_bytime, get_drilldown, compare_periods, list_goals, list_segments, list_filters, list_labels, list_accounts, get_counter, list_grants) and the user asks why traffic, conversions, SEO, sources, pages, campaigns, or business metrics changed, or asks for a weekly/monthly report, week-over-week comparison, or page-level diagnosis.
-version: 0.1.0
-author: ShalomGH
+description: "Analyze Yandex Metrika traffic, organic landing pages and conversions using an available connector, authorized browser session or verified export. Use for traffic changes, period comparisons and page-level diagnosis; not for installing counters or configuring paid campaigns."
 license: MIT
-platforms: [linux, macos, windows]
-metadata:
-  hermes:
-    tags: [yandex-metrika, analytics, marketing, seo, traffic, conversions, mcp]
-    related_skills: [analytics, seo-audit, performance-reporter]
-    requires_mcp: yandex-metrika
-```
+---
 
+# Yandex Metrika Analytics
 
-# Yandex Metrika Analytics (ShalomGH/yandex-metrika-mcp)
+Adapted from the skill by ShalomGH in [yandex-metrika-mcp](https://github.com/ShalomGH/yandex-metrika-mcp).
+The upstream skill targets Hermes and its Metrika MCP. This version also
+supports Codex browser/export workflows. Copyright and license terms are
+preserved in LICENSE-upstream.txt. This skill does not install or provide a connector.
 
-## Overview
+## Выбор доступного источника
 
-Skill for the `yandex-metrika` MCP server from
-[ShalomGH/yandex-metrika-mcp](https://github.com/ShalomGH/yandex-metrika-mcp).
-The MCP fetches data; this skill decides what to ask for, how to compare
-it, how to avoid false conclusions, and how to present results in business
-terms.
+- Сначала проверь реально доступные инструменты. Подключённый коннектор
+  Метрики предпочтителен, если поддерживает нужный отчёт. Не считай
+  названия инструментов upstream MCP существующими в текущей среде.
+- Если подходящего инструмента нет, используй авторизованный браузер.
+  Для проекта «Солид Металл» сначала обычный облачный браузер Codex,
+  TinyFish только как запасной вариант.
+- Допустима сохранённая выгрузка с известными счётчиком, датой получения,
+  периодом, фильтрами и моделью атрибуции. Старую выгрузку не выдавай за свежую.
+- Отсутствие доступа или данных не равно нулевому трафику. Ограничение
+  укажи один раз; продолжай проверки по доступным источникам. Не устанавливай
+  MCP/пакеты и не меняй настройки счётчика ради получения отчёта.
+- Сверь ID счётчика и сайт с проектом. Если ID неизвестен, получи список
+  доступных счётчиков через коннектор или интерфейс; не угадывай.
 
-**Core rule: never declare success, failure, or root cause from one metric
-alone.** Compare periods, decompose the change, check quality and
-conversions, then give a confidence-rated conclusion.
+## Сопоставимые периоды
 
-## When to use
+1. Уточни вопрос: органический трафик, посадочные, обращения или качество
+   измерения. Зафиксируй счётчик, его часовой пояс, фильтры и атрибуцию.
+2. Сравни последние 7 полностью завершённых дней с предыдущими 7.
+   Тренд оценивай отдельно: 28 к 28; год к году только при сопоставимости.
+3. Передай точные включительные начальную и конечную даты в часовом поясе
+   счётчика. Сегодня не включай в сравнение завершённых периодов.
+   Для явно запрошенного пользователем неполного периода пометь его отдельно.
+4. Проверь фактические даты ответа/экспорта и свежесть данных. Относительные
+   параметры вроде days_back зависят от реализации коннектора; не предполагай,
+   что они исключают сегодня. Значения по умолчанию API могут включать сегодня.
+5. Используй compare_periods, если доступный инструмент поддерживает точные
+   даты; иначе получи два отчёта с одинаковыми настройками и рассчитай дельты.
+   При нулевой базе процент изменения не определён: покажи исходные числа.
+6. Если часовой пояс счётчика неизвестен, даты явные, но сравнение на границе
+   дня не считай окончательно сопоставимым. Не подменяй его часовым поясом пользователя.
 
-Use for any analytics answer backed by Yandex Metrika data fetched through
-the MCP:
+## Метрики, разрезы и полнота
 
-- "Что случилось с трафиком / конверсиями?"
-- Traffic drop / growth diagnosis
-- Weekly / monthly site health reports
-- Source / channel quality analysis
-- SEO organic: phrases, landing pages, branded vs non-branded
-- Page prioritization: which URLs to improve first
-- Conversion diagnosis by source / page / device
-- Executive summaries
-- "Compare this week vs last week", "Compare May vs April"
+Сначала получи общие итоги, затем разложи изменение по поисковику,
+посадочной странице, устройству, региону и запросу, где такой разрез доступен.
+Для каждого вывода сохраняй источник, точный период и базу сравнения.
 
-Do not use for:
+Основные API-метрики: ym:s:visits, ym:s:users, ym:s:pageviews,
+ym:s:bounceRate, ym:s:avgVisitDurationSeconds, ym:s:avgPageViews.
+Цели получай из списка целей счётчика и проверяй доступные ID метрик;
+число достижений и число визитов с целью не взаимозаменяемы.
 
-- Installing counters, tags, events, GTM (use `analytics`)
-- Full technical SEO crawl without metrics (use `seo-audit` /
-  `technical-seo-checker`)
-- Paid ads account optimization with no site analytics involved
-- GA4 / Mixpanel / Segment — this skill is Yandex Metrika only
+Пример строки группировок для проверки входных страниц и поисковика:
+`dimensions="ym:s:startURL,ym:s:searchEngine"`.
+Синтаксис параметров коннектора проверь по его схеме. Для фильтра органики
+выбери документированный ID источника трафика с нужной моделью атрибуции;
+подтверди эффективный фильтр в ответе. Не смешивай модели между периодами.
 
-## Tool map
+- Сверяй ID группировок и метрик с актуальным справочником и схемой инструмента.
+  Не придумывай сокращения для страны, региона, запроса или источника.
+- Префиксы ym:s: относятся к визитам, ym:pv: к хитам. Не объединяй
+  несовместимые метрики/группировки в одном запросе.
+- Ответ без dimensions не является справочником доступных полей.
+- Top-50 — разведочная выборка. Для анализа всех страниц используй
+  поддерживаемую пагинацию limit/offset или полный экспорт интерфейса.
+  Проверяй число полученных строк, total_rows при наличии, обрезку и семплирование.
+  Если коннектор не позволяет выгрузить всё, укажи конкретный пробел охвата.
+- Общие итоги проверяй отдельно. Суммы строк по неаддитивным метрикам
+  (например, пользователям) могут отличаться; не «исправляй» их искусственно.
+- Отсутствие URL в выгрузке не доказывает удаление из индекса. Сначала
+  исключи ограничение строк, фильтры, отсутствие визитов и смену адреса.
 
-All tools are namespaced `mcp__yandex_metrika__*`. Prefer these over
-generic HTTP calls. Tool groups:
+## Нулевые или низкие отказы
 
-**Discovery (always start here if `counter_id` is unknown):**
+Нулевой показатель сам по себе не доказывает ни сбой, ни хорошую вовлечённость.
+Проверь размер выборки, настройки порога, сегмент и последовательность событий.
 
-- `mcp_yandex_metrika_list_counters` — list counters visible to the token
-- `mcp_yandex_metrika_get_counter` — full info for one counter
-- `mcp_yandex_metrika_list_accounts` — top-level accounts
-- `mcp_yandex_metrika_list_goals` — goals (conversions) of a counter
-- `mcp_yandex_metrika_list_segments` — saved segments
-- `mcp_yandex_metrika_list_filters` — saved filters
-- `mcp_yandex_metrika_list_labels` — labels across account
-- `mcp_yandex_metrika_list_grants` — access grants on a counter
+По определению Метрики отсутствие события «неотказ» входит в условия отказа;
+поэтому оно не объясняет нулевые отказы. Для диагноза проверь гипотезы:
+дубли pageview/hit, преждевременный notBounce, изменение настроек либо
+реальные многопросмотровые/длительные визиты. Подтверди причину наблюдаемыми
+событиями и историей внедрения, а не только значением bounceRate.
 
-**Analytics (reports):**
+Метод notBounce сообщает, что визит не является отказом. Не меняй его вызовы,
+порог или цели для косметического улучшения метрики. Изменение требует
+обоснованного пакета, разрешения пользователя и последующей проверки.
 
-- `mcp_yandex_metrika_get_report` — arbitrary table: `metrics`,
-  `dimensions`, `filters`, `sort`, `date1/date2` or `days_back`, `limit`,
-  optional `preset`
-- `mcp_yandex_metrika_get_bytime` — same as `get_report` but grouped
-  `hour | day | week | month`. Use for time series and charts.
-- `mcp_yandex_metrika_get_drilldown` — expand a row of a parent report
-  (e.g. drill into `ym:s:startURL` for `ym:s:browser == "chrome"`)
-- `mcp_yandex_metrika_compare_periods` — compare two periods, returns
-  side-by-side totals + absolute and percent deltas per row
+## Связка с SEO и заявками
 
-## Mandatory analysis pattern
+- Google и Яндекс анализируй отдельно. Метрика измеряет визиты, а не показы,
+  позиции или индексирование. Для последних нужны GSC и Яндекс Вебмастер;
+  частотность Wordstat не является измерением позиций.
+- Сохраняй точный URL и полную маркировку SKU при сопоставлении данных.
+  Категория семейства и конкретная карточка могут отвечать разным намерениям.
+- Разделяй достижения целей, уникальные обращения, квалифицированные лиды,
+  сделки и выручку. Проверь дубли целей и тестовые обращения. Продажи связывай
+  с органикой только по доступным подтверждённым данным CRM.
+- Без CRM бизнес-эффект не установлен. Без свежего Вебмастера нельзя
+  объявлять старый период текущим или переносить вывод Google на Яндекс.
+- Падение зарегистрированных визитов может отражать потерю измерения.
+  Сопоставь его с данными поиска, доступностью сайта и загрузкой счётчика.
+  Один показатель не устанавливает причину всего спада.
 
-For any non-trivial question:
+## Результат
 
-1. **Define the question** — drop, growth, quality, SEO, pages,
-   conversions, campaign, report.
-2. **Resolve `counter_id`** with `list_counters` first. Do not guess.
-4. **Pick comparable periods** — same duration; never compare a full
-   week to a 3-day window. Avoid weekday-vs-weekend unless the user
-   asked for it. For "this week vs last week" use `compare_periods` with
-   `days_back` derived from the user's local current date if no
-   explicit dates are given.
-4. **Choose metrics and dimensions** from the Yandex Metrika IDs (see
-   reference list below). Use `ym:s:*` for session-level, `ym:pv:*` for
-   pageview-level.
-5. **Pull baseline** — total visits/users/pageviews for the period.
-6. **Decompose** — by source, page, device, country, etc. Pick the cut
-   that matches the question.
-7. **Check quality** — bounce rate, avg visit duration, page depth, goal
-   conversion rate. A traffic spike with collapsing conversion rate is
-   a problem, not a win.
-8. **Synthesize** — give a single confidence-rated answer (high /
-   medium / low) with the supporting numbers. State assumptions.
+Сообщи суть с уровнем уверенности, цифры с точными периодами, подтверждённую
+причину либо гипотезы и следующий проверяемый шаг. Разделяй недельное
+изменение, 28-дневный тренд и результат по CRM. Не называй канал хорошим
+или плохим без базы сравнения. План не записывай как выполненную правку.
 
-## Common metric and dimension IDs
+Для «Солид Металл» внеси диагностику в активный журнал работ. Перед реальной
+публикацией или изменением аналитики подготовь точный пакет и откат;
+следуй действующему разрешению пользователя. Этот навык сам разрешений не даёт.
 
-**Metrics (session-level, `ym:s:*`):**
+## Официальные источники
 
-- `ym:s:visits`, `ym:s:pageviews`, `ym:s:users`, `ym:s:newUsers`
-- `ym:s:bounceRate`, `ym:s:avgVisitDurationSeconds`, `ym:s:pageDepth`
-- `ym:s:goal<id>visits`, `ym:s:goal<id>conversions`,
-  `ym:s:goal<id>conversionRate`
-- `ym:s:sumParams`, `ym:s:manGoal<id>conversionRate`
+- [Термины и определение отказа](https://yandex.ru/support/metrica/ru/general/glossary)
+- [Метод notBounce](https://yandex.ru/support/metrica/ru/objects/notbounce)
+- [API: даты, группировки и пагинация](https://yandex.com/dev/metrika/ru/stat/openapi/data_1)
+- [Примеры API отчётов](https://yandex.ru/dev/metrika/ru/stat/examples)
 
-**Dimensions:**
+## Среда и секреты
 
-- `ym:s:date`, `ym:s:week`, `ym:s:month`
-- `ym:s:lastTrafficSource`, `ym:s:lastSearchEngine`,
-  `ym:s:lastSearchPhraseRoot`
-- `ym:s:searchEngine`, `ym:s:searchPhrase`
-- `ym:s:startURL`, `ym:s:endURL`, `ym:s:pageTitle`
-- `ym:s:browser`, `ym:s:browserVersion`
-- `ym:s:deviceCategory`, `ym:s:operatingSystemRoot`, `ym:s:mobilePhone`
-- `ym:s:country`, `ym:s:city`, `ym:s:region`
-- `ym:s:referer`, `ym:s:refererSource`
-
-The full list is documented in the Yandex Metrika API reference; the MCP
-accepts raw IDs, no alias mapping is done server-side.
-
-## Common analysis recipes
-
-### "Traffic dropped this week"
-
-1. `compare_periods(counter_id, metrics="ym:s:visits,ym:s:users,ym:s:pageviews,ym:s:bounceRate", period1_date1, period1_date2, period2_date1, period2_date2)` — week vs week
-2. If drop confirmed: `get_report(counter_id, metrics="ym:s:visits", dimensions="ym:s:lastTrafficSource", ...)` — find which source fell
-3. Drill: `get_report` with `dimensions="ym:s:searchEngine"` or
-   `ym:s:lastSearchPhraseRoot` for organic, `ym:s:refererSource` for
-   external
-4. Check page-level: `get_report` with `dimensions="ym:s:startURL"`
-5. Check device: `dimensions="ym:s:deviceCategory"`
-6. Optional drilldown: `get_drilldown` to see what a specific source /
-   browser segment looks like at page level
-
-### "Weekly executive report"
-
-1. `list_counters` (confirm counter)
-2. `get_bytime(counter_id, metrics="ym:s:visits,ym:s:users,ym:s:pageviews,ym:s:bounceRate,ym:s:avgVisitDurationSeconds", group="day", days_back=7)` — daily time series
-3. `get_report` with `dimensions="ym:s:lastTrafficSource"` for share of
-   traffic
-4. `get_report` with `dimensions="ym:s:startURL"` top-10 by views
-5. `get_report` with `dimensions="ym:s:searchPhrase"` (organic) top-10
-6. For each goal in `list_goals`: pull `ym:s:goal<id>conversions` and
-   `ym:s:goal<id>conversionRate` over the same period
-7. Compose 3-block report: Суть / Цифры / Что делать
-
-### "Compare two periods"
-
-Always use `compare_periods` — it returns deltas in a single call and
-saves a round trip. Pass both periods explicitly when the user gave
-exact dates; use `days_back` only as a fallback.
-
-### "Page-level SEO diagnosis"
-
-1. `get_report` with `dimensions="ym:s:startURL",ym:s:searchEngine"`
-   filtered to organic (`filters="ym:s:lastTrafficSource=='organic'"`)
-2. Sort by `ym:s:visits` desc, `limit=50`
-3. For each top landing page: `get_report` with
-   `dimensions="ym:s:searchPhrase"`, filter by `ym:s:startURL=='<url>'`
-4. Cross-check `ym:s:bounceRate` and `ym:s:pageDepth` per URL
-
-## Pitfalls
-
-- **Do not compare a full previous month to a partial current month**
-  without flagging it. State the partial period explicitly in the
-  answer.
-- **Bounce rate near 0 is suspicious** — usually means the counter has
-  no non-bounce events, not "great engagement".
-- **Time-zone**: the server returns dates in the counter's configured
-  timezone. When the counter's timezone differs from the user's
-  working timezone, day boundaries shift by the offset — say so
-  explicitly when it matters (week-over-week comparisons spanning the
-  boundary, partial-day reports, etc.).
-- **Yandex Metrika requires `Authorization: OAuth <token>`, not
-  `Bearer`.** The MCP handles this internally; do not add a header
-  override.
-- **Tokens with no `metrika:read` scope return 403** even on
-  `list_counters`. If `list_counters` is empty or 403, ask the user
-  to verify the token, not to re-run the query.
-- **`days_back` counts back from today (counter time), not from the
-  user's "now"** — for "last 7 days" the endpoint covers the last 7
-  full days plus a partial current day, not 7×24 hours.
-- **Large `limit` values are slow.** For exploratory queries, use
-  `limit=20-50` first; only raise it once you know the shape.
-- **Never invent a metric or dimension name.** If unsure, run
-  `get_report` with no `dimensions` and the default schema exposes
-  what the counter supports, or use a known ID from the list above.
-
-## Output format
-
-For a substantive answer (drop, report, comparison) use three blocks:
-
-- **Суть** — one sentence, the headline finding with confidence
-- **Цифры** — 3-7 bullet points of the supporting numbers, with the
-  period and source they came from
-- **Что делать / Гипотезы** — concrete next checks or actions
-
-For a quick lookup (one number, one page) just give the number with
-the period and counter.
-
-## Required environment
-
-- MCP server `yandex-metrika` installed and enabled
-  (`hermes mcp list` should show it as `✓ enabled`)
-- `YANDEX_METRIKA_TOKEN` set in `~/.hermes/.env` with `metrika:read`
-  scope
-- At least one counter visible to the token (verify with
-  `mcp_yandex_metrika_list_counters`)
+Используй только доступный коннектор, авторизованный браузер или проверенную
+выгрузку. Hermes CLI и его .env не являются требованиями Codex.
+Не сохраняй токены, пароли или cookies в чате, отчёте или репозитории.
+Существующая авторизация остаётся в предназначенном для неё хранилище.
+Скрипты, зависимости и сторонние сервисы этим навыком не устанавливаются.
